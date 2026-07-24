@@ -1,0 +1,59 @@
+name: Private beta build
+
+on:
+  push:
+    branches:
+      - agent/in-app-updates
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Beta version tag
+        required: true
+        default: v1.1.0-beta.1
+
+permissions:
+  contents: write
+
+env:
+  BETA_VERSION: ${{ inputs.version || 'v1.1.0-beta.1' }}
+
+jobs:
+  beta:
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Build app
+        run: ./scripts/build-app.sh
+
+      - name: Package app
+        env:
+          VERSION: ${{ env.BETA_VERSION }}
+        run: ditto -c -k --sequesterRsrc --keepParent dist/TinySpectrum.app "TinySpectrum-${VERSION}-macOS.zip"
+
+      - name: Verify update signature
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          VERSION: ${{ env.BETA_VERSION }}
+        run: |
+          test -n "$SPARKLE_ED_PRIVATE_KEY"
+          SIGN_TOOL=$(find .build/artifacts -type f -name sign_update -perm +111 -print -quit)
+          test -n "$SIGN_TOOL"
+          printf '%s\n' "$SPARKLE_ED_PRIVATE_KEY" | "$SIGN_TOOL" --ed-key-file - "TinySpectrum-${VERSION}-macOS.zip" > update-signature.txt
+          test -s update-signature.txt
+
+      - name: Create private draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ env.BETA_VERSION }}
+        run: |
+          gh release create "$VERSION" \
+            "TinySpectrum-${VERSION}-macOS.zip" \
+            "update-signature.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "TinySpectrum ${VERSION}" \
+            --notes "Private beta build for testing. This draft is not visible to the public." \
+            --draft \
+            --prerelease
