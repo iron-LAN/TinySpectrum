@@ -43,6 +43,8 @@ struct ContentView: View {
         .preferredColorScheme(appearance == "dark" ? .dark : .light)
         .tint(Color(red: 0.08, green: 0.72, blue: 0.94))
         .onAppear { syncDraftRange() }
+        .onChange(of: model.startHz) { model.frequencyRangeDidChange() }
+        .onChange(of: model.stopHz) { model.frequencyRangeDidChange() }
     }
 
     private var appBackground: some View {
@@ -136,7 +138,20 @@ struct ContentView: View {
                 Button("STOP") { model.stop() }.buttonStyle(.bordered).tint(.red).disabled(!model.isScanning)
                 Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
                 Spacer()
-                Picker("Resolution", selection: $model.rbw) { ForEach(RBW.allCases) { Text($0.rawValue).tag($0) } }.frame(width: 235)
+                Picker("Resolution", selection: Binding(get: { model.rbw }, set: model.selectRBW)) {
+                    ForEach(RBW.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .frame(width: 235)
+                .disabled(model.isScanning)
+                Picker("Interval", selection: Binding(get: { model.scanInterval }, set: model.selectInterval)) {
+                    ForEach(ScanInterval.allCases) { Text($0.label).tag($0) }
+                }
+                .frame(width: 125)
+                .disabled(model.isScanning)
+                Text("~\(formattedDuration(model.estimatedSweepDuration)) sweep")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(model.estimatedSweepDuration > model.scanInterval.rawValue ? Color.orange : Color.secondary)
+                    .help("Estimated TinySA sweep time for the selected span and resolution")
                 if model.isScanning { ProgressView().controlSize(.small) }
             }.controlSize(.large)
         }
@@ -153,6 +168,13 @@ struct ContentView: View {
         if percent >= 38 { return "battery.50percent" }
         if percent >= 13 { return "battery.25percent" }
         return "battery.0percent"
+    }
+    private func formattedDuration(_ duration: TimeInterval) -> String {
+        let seconds = max(1, Int(duration.rounded()))
+        if seconds < 60 { return "\(seconds)s" }
+        let minutes = seconds / 60
+        let remainder = seconds % 60
+        return remainder == 0 ? "\(minutes)m" : "\(minutes)m \(remainder)s"
     }
     private func applyDraftRange() {
         let start = max(100_000, min(draftStartMHz * 1e6, model.maxHz - 1))

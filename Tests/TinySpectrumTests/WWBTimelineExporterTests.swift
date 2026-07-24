@@ -3,6 +3,15 @@ import XCTest
 @testable import TinySpectrum
 
 final class WWBTimelineExporterTests: XCTestCase {
+    func testSweepEstimatorCouplesIntervalAndResolution() {
+        let span = 700_000_000.0
+        XCTAssertEqual(SweepEstimator.finestRBW(spanHz: span, fitting: .seconds10), .khz100)
+        XCTAssertEqual(SweepEstimator.finestRBW(spanHz: span, fitting: .minute1), .khz30)
+        XCTAssertEqual(SweepEstimator.finestRBW(spanHz: span, fitting: .minutes5), .khz10)
+        XCTAssertEqual(SweepEstimator.shortestInterval(spanHz: span, fitting: .khz30), .minute1)
+        XCTAssertLessThan(SweepEstimator.duration(spanHz: span, rbw: .khz100), SweepEstimator.duration(spanHz: span, rbw: .khz30))
+    }
+
     func testPeakHoldUsesHighestLevelAtEachFrequency() {
         let scan = makeScan(captureCount: 3)
         XCTAssertEqual(scan.peakHoldPoints.map(\.frequency), [100_000, 125_000, 150_000])
