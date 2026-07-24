@@ -1,0 +1,84 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:TinySpectrum.Windows"
+        x:Class="TinySpectrum.Windows.MainWindow"
+        x:DataType="local:MainViewModel"
+        Title="TinySpectrum" Width="1440" Height="900" MinWidth="1050" MinHeight="680"
+        Background="#091119" RequestedThemeVariant="Dark">
+  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,320">
+    <Border Grid.ColumnSpan="2" Background="#151922" BorderBrush="#283746" BorderThickness="0,0,0,1" Padding="16,10">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+        <TextBlock Text="TinySpectrum" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
+        <ComboBox Grid.Column="1" Width="105" ItemsSource="{Binding Ports}" SelectedItem="{Binding SelectedPort}"/>
+        <Button Grid.Column="2" Content="CONNECT" Command="{Binding ConnectCommand}"/>
+        <TextBlock Grid.Column="4" Text="{Binding ConnectionText}" Foreground="#22C55E" FontWeight="Bold" VerticalAlignment="Center"/>
+        <Button Grid.Column="5" Content="DEMO" Command="{Binding DemoCommand}"/>
+        <ToggleSwitch Grid.Column="6" Content="Peak Hold" IsChecked="{Binding PeakHoldEnabled}"/>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" RowDefinitions="*,Auto" Margin="14">
+      <Border Background="#071018" BorderBrush="#1D3444" BorderThickness="1" CornerRadius="8">
+        <local:SpectrumControl DataContext="{Binding}"/>
+      </Border>
+      <StackPanel Grid.Row="1" Spacing="10" Margin="0,14,0,0">
+        <ItemsControl ItemsSource="{Binding Presets}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="local:ScanPreset"><Button Content="{Binding Name}" Tag="{Binding .}" Click="Preset_Click" Margin="0,0,8,0"/></DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Grid ColumnDefinitions="Auto,110,Auto,110,Auto,*,220,145,Auto" ColumnSpacing="8">
+          <TextBlock Text="START" VerticalAlignment="Center" Foreground="#8EA0AF"/>
+          <NumericUpDown Grid.Column="1" Value="{Binding StartMhz}" Minimum="0.1" Maximum="5300" Increment="1" FormatString="0.###"/>
+          <TextBlock Grid.Column="2" Text="STOP" VerticalAlignment="Center" Foreground="#8EA0AF"/>
+          <NumericUpDown Grid.Column="3" Value="{Binding StopMhz}" Minimum="0.101" Maximum="5300" Increment="1" FormatString="0.###"/>
+          <TextBlock Grid.Column="4" Text="MHz" VerticalAlignment="Center" Foreground="#8EA0AF"/>
+          <ComboBox Grid.Column="6" ItemsSource="{Binding RbwOptions}" SelectedItem="{Binding SelectedRbw}"/>
+          <ComboBox Grid.Column="7" ItemsSource="{Binding IntervalOptions}" SelectedItem="{Binding SelectedInterval}"/>
+          <TextBlock Grid.Column="8" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" Foreground="#9AA8B5"/>
+        </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Button Content="SCAN" Command="{Binding ScanCommand}" Classes="accent"/>
+          <Button Content="STOP" Command="{Binding StopCommand}"/>
+          <Button Content="CONTINUOUS" Command="{Binding ContinuousCommand}" Background="#7E22CE"/>
+          <TextBlock Text="Timeline" Margin="24,0,0,0" VerticalAlignment="Center" Foreground="#8EA0AF"/>
+          <Slider Width="300" Minimum="0" Maximum="{Binding TimelineMaximum}" Value="{Binding TimelineIndex}"/>
+          <local:CountdownControl Width="44" Height="44" DataContext="{Binding}"/>
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="1" Grid.Column="1" Background="#12151C" BorderBrush="#283746" BorderThickness="1,0,0,0" Padding="14">
+      <Grid RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+          <TextBlock Text="SCAN BROWSER" FontWeight="Bold" Foreground="#94A3B8"/>
+          <TextBlock Grid.Column="1" Text="{Binding VisibleCount, StringFormat={}{0} VISIBLE}" Margin="0,0,12,0" Foreground="#94A3B8"/>
+          <Button Grid.Column="2" Content="Clear" Command="{Binding ClearCommand}"/>
+        </Grid>
+        <ListBox Grid.Row="1" ItemsSource="{Binding Scans}" Background="Transparent" BorderThickness="0">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="local:SpectrumScan">
+              <Border BorderBrush="#27313B" BorderThickness="0,0,0,1" Padding="4,10">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="9">
+                  <CheckBox IsChecked="{Binding IsVisible, Mode=OneWay}" Tag="{Binding .}" Click="Visibility_Click" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding Rbw}" FontSize="11" Foreground="#94A3B8" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding CaptureLabel}" FontSize="11" Foreground="#C084FC"/>
+                  </StackPanel>
+                  <Button Grid.Column="2" Content="WWB" Tag="{Binding .}" Click="Export_Click" Background="#0EA5E9"/>
+                  <Button Grid.Column="3" Content="×" Tag="{Binding .}" Click="Delete_Click"/>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Grid.ColumnSpan="2" Background="#151922" BorderBrush="#283746" BorderThickness="0,1,0,0" Padding="14,8">
+      <TextBlock Text="{Binding Status}" Foreground="#AAB8C5"/>
+    </Border>
+  </Grid>
+</Window>
