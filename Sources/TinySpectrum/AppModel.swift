@@ -143,7 +143,7 @@ final class AppModel: ObservableObject {
                         let resolutionLabel = shouldRepeat ? "\(effectiveRBW.rawValue) • every \(scanInterval.label) • 145 pts" : effectiveRBW.rawValue
                         let scan = SpectrumScan(id: UUID(), date: capture.date, startHz: startHz, stopHz: stopHz, rbw: resolutionLabel, points: values, captures: shouldRepeat ? [capture] : nil)
                         scans.insert(scan, at: 0)
-                        selectedScanIDs.insert(scan.id)
+                        showScan(scan)
                         if shouldRepeat { continuousGroupID = scan.id }
                         status = shouldRepeat ? "Continuous scan • 1 capture" : "Captured \(values.count) points"
                     }
@@ -203,6 +203,22 @@ final class AppModel: ObservableObject {
     private var scanSpanHz: Double { max(1, stopHz - startHz) }
     func addPreset(name: String) { presets.append(.init(id: UUID(), name: name, startHz: startHz, stopHz: stopHz)); save() }
     func deletePreset(_ preset: ScanPreset) { presets.removeAll { $0.id == preset.id }; save() }
+    func toggleScanVisibility(_ scan: SpectrumScan) {
+        if selectedScanIDs.contains(scan.id) {
+            selectedScanIDs.remove(scan.id)
+        } else {
+            showScan(scan)
+        }
+    }
+    private func showScan(_ scan: SpectrumScan) {
+        if scan.isContinuous {
+            let otherContinuousIDs = Set(scans.filter { $0.isContinuous && $0.id != scan.id }.map(\.id))
+            selectedScanIDs.subtract(otherContinuousIDs)
+            timelineCaptureIndex = nil
+            timelinePosition = 1
+        }
+        selectedScanIDs.insert(scan.id)
+    }
     func deleteScan(_ scan: SpectrumScan) { selectedScanIDs.remove(scan.id); scans.removeAll { $0.id == scan.id }; save() }
     func deleteScans(at offsets: IndexSet) { offsets.map { scans[$0].id }.forEach { selectedScanIDs.remove($0) }; scans.remove(atOffsets: offsets); save() }
 

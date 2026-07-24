@@ -45,7 +45,7 @@ struct SpectrumView: View {
                             let location = screenLocation(point, plot: plot, bounds: bounds)
                             if i == 0 { peakPath.move(to: location) } else { peakPath.addLine(to: location) }
                         }
-                        context.stroke(peakPath, with: .color(.red), lineWidth: 1.8)
+                        context.stroke(peakPath, with: .color(.red), lineWidth: 1.3)
                     }
                 }
                 if let hover {
