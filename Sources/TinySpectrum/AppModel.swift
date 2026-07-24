@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     @Published var stopHz = 800_000_000.0
     @Published var maxHz = 5_300_000_000.0
     @Published var rbw: RBW = .khz30
+    @Published var scanInterval: ScanInterval = .minute1
     @Published var scans: [SpectrumScan] = []
     @Published var selectedScanIDs: Set<UUID> = []
     @Published var timelinePosition = 1.0
@@ -33,6 +34,8 @@ final class AppModel: ObservableObject {
     private var lastBatteryPoll = Date.distantPast
     private let locationProvider = CityLocationProvider()
     private let storeURL: URL
+    private enum TimingDriver { case resolution, interval }
+    private var timingDriver: TimingDriver = .resolution
 
     init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -120,6 +123,7 @@ final class AppModel: ObservableObject {
             guard let self else { return }
             var continuousGroupID: UUID?
             repeat {
+                let sweepStarted = Date()
                 do {
                     status = "Scanning \(SpectrumScan.short(startHz)) – \(SpectrumScan.short(stopHz))…"
                     let effectiveRBW = rbw
@@ -132,7 +136,7 @@ final class AppModel: ObservableObject {
                         updateTimelinePosition(for: scans[index])
                         status = "Continuous scan • \(scans[index].captureCount) captures"
                     } else {
-                        let resolutionLabel = shouldRepeat ? "\(effectiveRBW.rawValue) • 145 pts" : effectiveRBW.rawValue
+                        let resolutionLabel = shouldRepeat ? "\(effectiveRBW.rawValue) • every \(scanInterval.label) • 145 pts" : effectiveRBW.rawValue
                         let scan = SpectrumScan(id: UUID(), date: capture.date, startHz: startHz, stopHz: stopHz, rbw: resolutionLabel, points: values, captures: shouldRepeat ? [capture] : nil)
                         scans.insert(scan, at: 0)
                         selectedScanIDs.insert(scan.id)
@@ -140,6 +144,13 @@ final class AppModel: ObservableObject {
                         status = shouldRepeat ? "Continuous scan • 1 capture" : "Captured \(values.count) points"
                     }
                     save()
+                    if shouldRepeat, continuous, !Task.isCancelled {
+                        let remaining = scanInterval.seconds - Date().timeIntervalSince(sweepStarted)
+                        if remaining > 0 {
+                            status += " • every " + scanInterval.label
+                            try await Task.sleep(for: .seconds(remaining))
+                        }
+                    }
                 } catch {
                     if !(error is CancellationError) { status = error.localizedDescription }
                     break
@@ -152,11 +163,32 @@ final class AppModel: ObservableObject {
 
     func stop() {
         continuous = false
+        scanTask?.cancel()
         Task { await serial.stop() }
         if isScanning { status = "Stopping scan…" }
     }
 
-    func apply(_ preset: ScanPreset) { startHz = preset.startHz; stopHz = preset.stopHz }
+    func apply(_ preset: ScanPreset) { startHz = preset.startHz; stopHz = preset.stopHz; frequencyRangeDidChange() }
+    func selectRBW(_ value: RBW) {
+        timingDriver = .resolution
+        rbw = value
+        scanInterval = SweepEstimator.shortestInterval(spanHz: scanSpanHz, fitting: value)
+    }
+    func selectInterval(_ value: ScanInterval) {
+        timingDriver = .interval
+        scanInterval = value
+        rbw = SweepEstimator.finestRBW(spanHz: scanSpanHz, fitting: value)
+    }
+    func frequencyRangeDidChange() {
+        switch timingDriver {
+        case .resolution:
+            scanInterval = SweepEstimator.shortestInterval(spanHz: scanSpanHz, fitting: rbw)
+        case .interval:
+            rbw = SweepEstimator.finestRBW(spanHz: scanSpanHz, fitting: scanInterval)
+        }
+    }
+    var estimatedSweepDuration: TimeInterval { SweepEstimator.duration(spanHz: scanSpanHz, rbw: rbw) }
+    private var scanSpanHz: Double { max(1, stopHz - startHz) }
     func addPreset(name: String) { presets.append(.init(id: UUID(), name: name, startHz: startHz, stopHz: stopHz)); save() }
     func deletePreset(_ preset: ScanPreset) { presets.removeAll { $0.id == preset.id }; save() }
     func deleteScan(_ scan: SpectrumScan) { selectedScanIDs.remove(scan.id); scans.removeAll { $0.id == scan.id }; save() }

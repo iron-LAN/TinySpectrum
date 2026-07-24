@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var presetName = ""
     @State private var draftStartMHz = 0.1
     @State private var draftStopMHz = 800.0
+    @State private var peakHoldEnabled = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,6 +43,8 @@ struct ContentView: View {
         .preferredColorScheme(appearance == "dark" ? .dark : .light)
         .tint(Color(red: 0.08, green: 0.72, blue: 0.94))
         .onAppear { syncDraftRange() }
+        .onChange(of: model.startHz) { model.frequencyRangeDidChange() }
+        .onChange(of: model.stopHz) { model.frequencyRangeDidChange() }
     }
 
     private var appBackground: some View {
@@ -59,10 +62,19 @@ struct ContentView: View {
             HStack {
                 Text("SPECTRUM").font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
+                Toggle(isOn: $peakHoldEnabled) {
+                    Label("Peak Hold", systemImage: "waveform.path.ecg.rectangle")
+                        .font(.caption2.bold())
+                }
+                .toggleStyle(.button)
+                .controlSize(.small)
+                .tint(.red)
+                .disabled(!model.scans.contains { model.selectedScanIDs.contains($0.id) && $0.isContinuous })
+                .help("Overlay the highest level captured at each frequency in red")
             }
             .padding(.horizontal, 20).padding(.top, 16)
             .overlay(alignment: .bottom) { Rectangle().fill(.cyan.opacity(0.45)).frame(height: 1).padding(.horizontal, 20) }
-            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex)
+            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, peakHoldEnabled: peakHoldEnabled)
                 .frame(minHeight: 300, maxHeight: .infinity)
                 .layoutPriority(1)
                 .padding(.horizontal, 8)
@@ -126,7 +138,20 @@ struct ContentView: View {
                 Button("STOP") { model.stop() }.buttonStyle(.bordered).tint(.red).disabled(!model.isScanning)
                 Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
                 Spacer()
-                Picker("Resolution", selection: $model.rbw) { ForEach(RBW.allCases) { Text($0.rawValue).tag($0) } }.frame(width: 235)
+                Picker("Resolution", selection: Binding(get: { model.rbw }, set: { model.selectRBW($0) })) {
+                    ForEach(RBW.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .frame(width: 235)
+                .disabled(model.isScanning)
+                Picker("Interval", selection: Binding(get: { model.scanInterval }, set: { model.selectInterval($0) })) {
+                    ForEach(ScanInterval.allCases) { Text($0.label).tag($0) }
+                }
+                .frame(width: 125)
+                .disabled(model.isScanning)
+                Text("~\(formattedDuration(model.estimatedSweepDuration)) sweep")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(model.estimatedSweepDuration > model.scanInterval.seconds ? Color.orange : Color.secondary)
+                    .help("Estimated TinySA sweep time for the selected span and resolution")
                 if model.isScanning { ProgressView().controlSize(.small) }
             }.controlSize(.large)
         }
@@ -143,6 +168,13 @@ struct ContentView: View {
         if percent >= 38 { return "battery.50percent" }
         if percent >= 13 { return "battery.25percent" }
         return "battery.0percent"
+    }
+    private func formattedDuration(_ duration: TimeInterval) -> String {
+        let seconds = max(1, Int(duration.rounded()))
+        if seconds < 60 { return "\(seconds)s" }
+        let minutes = seconds / 60
+        let remainder = seconds % 60
+        return remainder == 0 ? "\(minutes)m" : "\(minutes)m \(remainder)s"
     }
     private func applyDraftRange() {
         let start = max(100_000, min(draftStartMHz * 1e6, model.maxHz - 1))
@@ -193,6 +225,10 @@ struct ContentView: View {
     }
 
     private func exportScanToWWB(_ scan: SpectrumScan) {
+        if scan.isContinuous {
+            exportTimelineToWWB(scan)
+            return
+        }
         let points = scan.points(atCaptureIndex: model.timelineCaptureIndex)
         let csv = points.map { String(format: "%.6f,%.2f", $0.frequency / 1e6, $0.level) }.joined(separator: "\n") + "\n"
         let preset = model.presets.first { abs($0.startHz - scan.startHz) < 1 && abs($0.stopHz - scan.stopHz) < 1 }?.name ?? "Custom"
@@ -211,6 +247,27 @@ struct ContentView: View {
             model.status = "Exported WWB scan to \(url.lastPathComponent)"
         } catch {
             model.status = "WWB export failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func exportTimelineToWWB(_ scan: SpectrumScan) {
+        let preset = model.presets.first { abs($0.startHz - scan.startHz) < 1 && abs($0.stopHz - scan.stopHz) < 1 }?.name ?? "Custom"
+        let city = model.currentCity ?? "UnknownLocation"
+        let resolution = scan.rbw.components(separatedBy: "(").first?.components(separatedBy: "â€¢").first?.trimmingCharacters(in: .whitespaces) ?? scan.rbw
+        let baseName = [preset, resolution, city, "Timeline"].map(safeFilenamePart).joined(separator: "_")
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "sdb3") ?? .data]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = baseName + ".sdb3"
+        panel.title = "Export Continuous Scan to Wireless Workbench"
+        panel.prompt = "Export Timeline"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try WWBTimelineExporter.data(for: scan, title: baseName)
+            try data.write(to: url, options: .atomic)
+            model.status = "Exported WWB timeline with \(scan.captureCount) sweeps to \(url.lastPathComponent)"
+        } catch {
+            model.status = "WWB timeline export failed: \(error.localizedDescription)"
         }
     }
 

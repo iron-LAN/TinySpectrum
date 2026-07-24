@@ -9,13 +9,13 @@ on:
       version:
         description: Beta version tag
         required: true
-        default: v1.1.0-beta.1
+        default: v2.0.0-beta.1
 
 permissions:
   contents: write
 
 env:
-  BETA_VERSION: ${{ inputs.version || 'v1.1.0-beta.1' }}
+  BETA_VERSION: ${{ inputs.version || 'v2.0.0-beta.1' }}
 
 jobs:
   beta:
@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v5
+
+      - name: Run tests
+        run: swift test
 
       - name: Build app
         run: ./scripts/build-app.sh

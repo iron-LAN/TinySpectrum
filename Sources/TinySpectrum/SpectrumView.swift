@@ -12,10 +12,15 @@ struct SpectrumView: View {
     let selected: Set<UUID>
     let timelinePosition: Double
     let timelineCaptureIndex: Int?
+    let peakHoldEnabled: Bool
     @State private var hover: HoverSample?
 
     var visible: [(Int, SpectrumScan)] { scans.enumerated().filter { selected.contains($0.element.id) } }
-    private var allPoints: [ScanPoint] { visible.flatMap { $0.1.points(atCaptureIndex: timelineCaptureIndex) } }
+    private var allPoints: [ScanPoint] {
+        visible.flatMap { _, scan in
+            scan.points(atCaptureIndex: timelineCaptureIndex) + (peakHoldEnabled && scan.isContinuous ? scan.peakHoldPoints : [])
+        }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -34,6 +39,14 @@ struct SpectrumView: View {
                         if i == 0 { path.move(to: location) } else { path.addLine(to: location) }
                     }
                     context.stroke(path, with: .color(Palette.color(index, scheme: colorScheme)), lineWidth: 1.8)
+                    if peakHoldEnabled, scan.isContinuous {
+                        var peakPath = Path()
+                        for (i, point) in scan.peakHoldPoints.enumerated() {
+                            let location = screenLocation(point, plot: plot, bounds: bounds)
+                            if i == 0 { peakPath.move(to: location) } else { peakPath.addLine(to: location) }
+                        }
+                        context.stroke(peakPath, with: .color(.red), lineWidth: 1.8)
+                    }
                 }
                 if let hover {
                     var vertical = Path(); vertical.move(to: .init(x: hover.location.x, y: plot.minY)); vertical.addLine(to: .init(x: hover.location.x, y: plot.maxY))
