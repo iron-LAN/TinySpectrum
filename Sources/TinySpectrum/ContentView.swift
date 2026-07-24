@@ -60,6 +60,15 @@ struct ContentView: View {
             HStack {
                 Text("SPECTRUM").font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
+                Toggle(isOn: $peakHoldEnabled) {
+                    Label("Peak Hold", systemImage: "waveform.path.ecg.rectangle")
+                        .font(.caption2.bold())
+                }
+                .toggleStyle(.button)
+                .controlSize(.small)
+                .tint(.red)
+                .disabled(!model.scans.contains { model.selectedScanIDs.contains($0.id) && $0.isContinuous })
+                .help("Overlay the highest level captured at each frequency in red")
             }
             .padding(.horizontal, 20).padding(.top, 16)
             .overlay(alignment: .bottom) { Rectangle().fill(.cyan.opacity(0.45)).frame(height: 1).padding(.horizontal, 20) }
@@ -126,13 +135,6 @@ struct ContentView: View {
                 Button("SCAN") { model.beginScan() }.buttonStyle(.borderedProminent).tint(.cyan).disabled(!model.isConnected || model.isScanning)
                 Button("STOP") { model.stop() }.buttonStyle(.bordered).tint(.red).disabled(!model.isScanning)
                 Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
-                Toggle(isOn: $peakHoldEnabled) {
-                    Label("PEAK HOLD", systemImage: "waveform.path.ecg.rectangle")
-                }
-                .toggleStyle(.button)
-                .tint(.orange)
-                .disabled(!model.scans.contains { model.selectedScanIDs.contains($0.id) && $0.isContinuous })
-                .help("Show the highest level captured at each frequency across the full continuous session")
                 Spacer()
                 Picker("Resolution", selection: $model.rbw) { ForEach(RBW.allCases) { Text($0.rawValue).tag($0) } }.frame(width: 235)
                 if model.isScanning { ProgressView().controlSize(.small) }

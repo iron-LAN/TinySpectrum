@@ -9,13 +9,13 @@ on:
       version:
         description: Beta version tag
         required: true
-        default: v1.3.0-beta.1
+        default: v1.3.0-beta.2
 
 permissions:
   contents: write
 
 env:
-  BETA_VERSION: ${{ inputs.version || 'v1.3.0-beta.1' }}
+  BETA_VERSION: ${{ inputs.version || 'v1.3.0-beta.2' }}
 
 jobs:
   beta:

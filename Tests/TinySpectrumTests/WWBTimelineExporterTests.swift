@@ -14,13 +14,14 @@ final class WWBTimelineExporterTests: XCTestCase {
         let data = try WWBTimelineExporter.data(for: scan, title: "Test timeline")
         let binaryMarker = try XCTUnwrap(data.range(of: Data("@Binary:".utf8)))
         let binaryStart = binaryMarker.upperBound
-        let recordSize = 20 // 14 bytes of framing plus three 16-bit samples
+        let recordSize = 26 // 14 bytes of framing plus A/B curves with three 16-bit samples each
         let expectedRecords = 103 // 100 normal, running peak hold at 40/80, interval peak hold at 100
         let extendedStart = binaryStart + expectedRecords * recordSize
 
         XCTAssertEqual(String(data: data[extendedStart..<(extendedStart + 10)], encoding: .utf8), "@Extended:")
         XCTAssertEqual(readUInt32(data, at: binaryStart + 4), 1)
         XCTAssertEqual(readUInt32(data, at: binaryStart + 8), 0)
+        XCTAssertEqual(data[(binaryStart + 12)..<(binaryStart + 18)], data[(binaryStart + 18)..<(binaryStart + 24)])
 
         let recordAfterSweep40 = binaryStart + 40 * recordSize
         XCTAssertEqual(readUInt32(data, at: recordAfterSweep40 + 4), 0)

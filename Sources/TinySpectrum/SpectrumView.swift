@@ -16,7 +16,11 @@ struct SpectrumView: View {
     @State private var hover: HoverSample?
 
     var visible: [(Int, SpectrumScan)] { scans.enumerated().filter { selected.contains($0.element.id) } }
-    private var allPoints: [ScanPoint] { visible.flatMap { displayPoints(for: $0.1) } }
+    private var allPoints: [ScanPoint] {
+        visible.flatMap { _, scan in
+            scan.points(atCaptureIndex: timelineCaptureIndex) + (peakHoldEnabled && scan.isContinuous ? scan.peakHoldPoints : [])
+        }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -30,11 +34,19 @@ struct SpectrumView: View {
                 guard !visible.isEmpty else { return }
                 for (index, scan) in visible {
                     var path = Path()
-                    for (i, point) in displayPoints(for: scan).enumerated() {
+                    for (i, point) in scan.points(atCaptureIndex: timelineCaptureIndex).enumerated() {
                         let location = screenLocation(point, plot: plot, bounds: bounds)
                         if i == 0 { path.move(to: location) } else { path.addLine(to: location) }
                     }
                     context.stroke(path, with: .color(Palette.color(index, scheme: colorScheme)), lineWidth: 1.8)
+                    if peakHoldEnabled, scan.isContinuous {
+                        var peakPath = Path()
+                        for (i, point) in scan.peakHoldPoints.enumerated() {
+                            let location = screenLocation(point, plot: plot, bounds: bounds)
+                            if i == 0 { peakPath.move(to: location) } else { peakPath.addLine(to: location) }
+                        }
+                        context.stroke(peakPath, with: .color(.red), lineWidth: 1.8)
+                    }
                 }
                 if let hover {
                     var vertical = Path(); vertical.move(to: .init(x: hover.location.x, y: plot.minY)); vertical.addLine(to: .init(x: hover.location.x, y: plot.maxY))
@@ -94,7 +106,7 @@ struct SpectrumView: View {
         guard plot.contains(cursor) else { return nil }
         var result: HoverSample?, bestDistance = Double.greatestFiniteMagnitude
         for (index, scan) in visible {
-            for point in displayPoints(for: scan) {
+            for point in scan.points(atCaptureIndex: timelineCaptureIndex) {
                 let location = screenLocation(point, plot: plot, bounds: bounds)
                 let distance = hypot(location.x - cursor.x, location.y - cursor.y)
                 if distance < bestDistance {
@@ -104,10 +116,6 @@ struct SpectrumView: View {
             }
         }
         return result
-    }
-
-    private func displayPoints(for scan: SpectrumScan) -> [ScanPoint] {
-        peakHoldEnabled && scan.isContinuous ? scan.peakHoldPoints : scan.points(atCaptureIndex: timelineCaptureIndex)
     }
 
     private func drawGrid(context: GraphicsContext, plot: CGRect) {

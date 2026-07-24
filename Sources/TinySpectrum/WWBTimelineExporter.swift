@@ -21,7 +21,7 @@ enum WWBTimelineExporter {
         let stepKHz: Int
 
         var count: Int { (stopKHz - startKHz) / stepKHz + 1 }
-        var recordSize: Int { 4 + 4 + 4 + count * 2 + 2 }
+        var recordSize: Int { 4 + 4 + 4 + count * 2 * 2 + 2 }
     }
 
     static func data(for scan: SpectrumScan, title: String) throws -> Data {
@@ -30,24 +30,27 @@ enum WWBTimelineExporter {
         let grid = try makeGrid(from: first.points)
         let safeTitle = title.isEmpty ? "TinySpectrum continuous scan" : title
 
-        let curve: [String: Any] = [
-            "Color": "#00d9ff",
-            "CoordinationSource": true,
-            "FreqRanges": [[
-                "EndFreq": grid.stopKHz,
-                "StartFreq": grid.startKHz,
-                "StepFreq": grid.stepKHz
-            ]],
-            "Name": "TinySpectrum",
-            "ResolutionBandWidth": resolutionBandwidthKHz(scan.rbw)
-        ]
+        func curve(name: String, color: String) -> [String: Any] {
+            [
+                "Color": color,
+                "CoordinationSource": true,
+                "FreqRanges": [[
+                    "EndFreq": grid.stopKHz,
+                    "StartFreq": grid.startKHz,
+                    "StepFreq": grid.stepKHz
+                ]],
+                "Name": name,
+                "ResolutionBandWidth": resolutionBandwidthKHz(scan.rbw)
+            ]
+        }
         let header: [String: Any] = [
             "AmplUnits": "dBm",
             "BinarySchema": [
                 ["Bytes": 4, "DataValue": "start-of-sweep"],
                 ["Bytes": 4, "DataValue": "id"],
                 ["Bytes": 4, "DataValue": "timestamp"],
-                ["Curve": curve],
+                ["Curve": curve(name: "Antenna A", color: "#ffff00")],
+                ["Curve": curve(name: "Antenna B", color: "#00d9ff")],
                 ["Bytes": 2, "DataValue": "crc16"]
             ],
             "BitWidth": 16,
@@ -59,7 +62,7 @@ enum WWBTimelineExporter {
             ],
             "Scale Factor": 10,
             "ScannerModel": "",
-            "ScannerName": "tinySA Ultra",
+            "ScannerName": "AD600",
             "StartDate": dateString(first.date),
             "StartTime": timeString(first.date),
             "Title": safeTitle,
@@ -97,9 +100,9 @@ enum WWBTimelineExporter {
 
         let extended: [String: Any] = [
             "Band": "Wideband",
-            "Creator": "TinySpectrum 1.3.0-beta.1",
+            "Creator": "TinySpectrum 1.3.0-beta.2",
             "ScanName": [safeTitle],
-            "UserCurveColors": ["#00d9ff"]
+            "UserCurveColors": ["#ffff00", "#00d9ff"]
         ]
         output.append(Data("@Extended:\n".utf8))
         output.append(try JSONSerialization.data(withJSONObject: extended, options: [.prettyPrinted, .sortedKeys]))
@@ -157,6 +160,9 @@ enum WWBTimelineExporter {
         var value = Data("@Swp".utf8)
         value.appendBigEndian(id)
         value.appendBigEndian(timestamp)
+        for sample in samples { value.appendBigEndian(sample) }
+        // WWB's AD600 timeline model requires explicit A/B antenna curves.
+        // TinySpectrum has one RF input, so both curves contain the same sweep.
         for sample in samples { value.appendBigEndian(sample) }
         value.appendBigEndian(crc16ARC(value))
         return value
