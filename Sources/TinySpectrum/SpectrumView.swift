@@ -18,7 +18,7 @@ struct SpectrumView: View {
     var visible: [(Int, SpectrumScan)] { scans.enumerated().filter { selected.contains($0.element.id) } }
     private var allPoints: [ScanPoint] {
         visible.flatMap { _, scan in
-            scan.points(atCaptureIndex: timelineCaptureIndex) + (peakHoldEnabled && scan.isContinuous ? scan.peakHoldPoints : [])
+            scan.points(atCaptureIndex: timelineCaptureIndex) + (peakHoldEnabled && scan.isContinuous ? scan.peakHoldPoints(atCaptureIndex: timelineCaptureIndex) : [])
         }
     }
 
@@ -41,7 +41,7 @@ struct SpectrumView: View {
                     context.stroke(path, with: .color(Palette.color(index, scheme: colorScheme)), lineWidth: 1.8)
                     if peakHoldEnabled, scan.isContinuous {
                         var peakPath = Path()
-                        for (i, point) in scan.peakHoldPoints.enumerated() {
+                        for (i, point) in scan.peakHoldPoints(atCaptureIndex: timelineCaptureIndex).enumerated() {
                             let location = screenLocation(point, plot: plot, bounds: bounds)
                             if i == 0 { peakPath.move(to: location) } else { peakPath.addLine(to: location) }
                         }
