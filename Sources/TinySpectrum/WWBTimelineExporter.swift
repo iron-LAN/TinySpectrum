@@ -21,7 +21,7 @@ enum WWBTimelineExporter {
         let stepKHz: Int
 
         var count: Int { (stopKHz - startKHz) / stepKHz + 1 }
-        var recordSize: Int { 4 + 4 + 4 + count * 2 * 2 + 2 }
+        var recordSize: Int { 4 + 4 + 4 + count * 2 + 2 }
     }
 
     static func data(for scan: SpectrumScan, title: String) throws -> Data {
@@ -50,7 +50,6 @@ enum WWBTimelineExporter {
                 ["Bytes": 4, "DataValue": "id"],
                 ["Bytes": 4, "DataValue": "timestamp"],
                 ["Curve": curve(name: "Antenna A", color: "#ffff00")],
-                ["Curve": curve(name: "Antenna B", color: "#00d9ff")],
                 ["Bytes": 2, "DataValue": "crc16"]
             ],
             "BitWidth": 16,
@@ -100,9 +99,9 @@ enum WWBTimelineExporter {
 
         let extended: [String: Any] = [
             "Band": "Wideband",
-            "Creator": "TinySpectrum 1.3.0-beta.2",
+            "Creator": "TinySpectrum 1.3.0",
             "ScanName": [safeTitle],
-            "UserCurveColors": ["#ffff00", "#00d9ff"]
+            "UserCurveColors": ["#ffff00"]
         ]
         output.append(Data("@Extended:\n".utf8))
         output.append(try JSONSerialization.data(withJSONObject: extended, options: [.prettyPrinted, .sortedKeys]))
@@ -160,9 +159,6 @@ enum WWBTimelineExporter {
         var value = Data("@Swp".utf8)
         value.appendBigEndian(id)
         value.appendBigEndian(timestamp)
-        for sample in samples { value.appendBigEndian(sample) }
-        // WWB's AD600 timeline model requires explicit A/B antenna curves.
-        // TinySpectrum has one RF input, so both curves contain the same sweep.
         for sample in samples { value.appendBigEndian(sample) }
         value.appendBigEndian(crc16ARC(value))
         return value
