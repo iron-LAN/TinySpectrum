@@ -145,7 +145,7 @@ final class AppModel: ObservableObject {
                     }
                     save()
                     if shouldRepeat, continuous, !Task.isCancelled {
-                        let remaining = scanInterval.rawValue - Date().timeIntervalSince(sweepStarted)
+                        let remaining = scanInterval.seconds - Date().timeIntervalSince(sweepStarted)
                         if remaining > 0 {
                             status += " • every " + scanInterval.label
                             try await Task.sleep(for: .seconds(remaining))

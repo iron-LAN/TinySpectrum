@@ -138,19 +138,19 @@ struct ContentView: View {
                 Button("STOP") { model.stop() }.buttonStyle(.bordered).tint(.red).disabled(!model.isScanning)
                 Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
                 Spacer()
-                Picker("Resolution", selection: Binding(get: { model.rbw }, set: model.selectRBW)) {
+                Picker("Resolution", selection: Binding(get: { model.rbw }, set: { model.selectRBW($0) })) {
                     ForEach(RBW.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .frame(width: 235)
                 .disabled(model.isScanning)
-                Picker("Interval", selection: Binding(get: { model.scanInterval }, set: model.selectInterval)) {
+                Picker("Interval", selection: Binding(get: { model.scanInterval }, set: { model.selectInterval($0) })) {
                     ForEach(ScanInterval.allCases) { Text($0.label).tag($0) }
                 }
                 .frame(width: 125)
                 .disabled(model.isScanning)
                 Text("~\(formattedDuration(model.estimatedSweepDuration)) sweep")
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(model.estimatedSweepDuration > model.scanInterval.rawValue ? Color.orange : Color.secondary)
+                    .foregroundStyle(model.estimatedSweepDuration > model.scanInterval.seconds ? Color.orange : Color.secondary)
                     .help("Estimated TinySA sweep time for the selected span and resolution")
                 if model.isScanning { ProgressView().controlSize(.small) }
             }.controlSize(.large)

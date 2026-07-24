@@ -98,7 +98,7 @@ enum RBW: String, CaseIterable, Identifiable {
     }
 }
 
-enum ScanInterval: TimeInterval, CaseIterable, Identifiable {
+enum ScanInterval: Int, CaseIterable, Identifiable {
     case seconds10 = 10
     case seconds30 = 30
     case minute1 = 60
@@ -106,7 +106,8 @@ enum ScanInterval: TimeInterval, CaseIterable, Identifiable {
     case minutes10 = 600
     case minutes30 = 1_800
 
-    var id: TimeInterval { rawValue }
+    var id: Int { rawValue }
+    var seconds: TimeInterval { TimeInterval(rawValue) }
     var label: String {
         switch self {
         case .seconds10: "10s"
@@ -141,12 +142,12 @@ enum SweepEstimator {
     }
 
     static func finestRBW(spanHz: Double, fitting interval: ScanInterval) -> RBW {
-        RBW.allCases.first { duration(spanHz: spanHz, rbw: $0) <= interval.rawValue } ?? .khz850
+        RBW.allCases.first { duration(spanHz: spanHz, rbw: $0) <= interval.seconds } ?? .khz850
     }
 
     static func shortestInterval(spanHz: Double, fitting rbw: RBW) -> ScanInterval {
         let estimate = duration(spanHz: spanHz, rbw: rbw)
-        return ScanInterval.allCases.first { estimate <= $0.rawValue } ?? .minutes30
+        return ScanInterval.allCases.first { estimate <= $0.seconds } ?? .minutes30
     }
 }
 
