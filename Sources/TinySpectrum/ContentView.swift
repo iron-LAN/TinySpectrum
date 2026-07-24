@@ -237,7 +237,7 @@ struct ContentView: View {
                         .help("Export this scan to Wireless Workbench")
                         Button { model.deleteScan(scan) } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
                             .buttonStyle(.plain).help("Delete scan")
-                    }.contentShape(Rectangle()).onTapGesture { if model.selectedScanIDs.contains(scan.id) { model.selectedScanIDs.remove(scan.id) } else { model.selectedScanIDs.insert(scan.id) } }
+                    }.contentShape(Rectangle()).onTapGesture { model.toggleScanVisibility(scan) }
                 }.onDelete(perform: model.deleteScans) }.listStyle(.inset)
             }
         }.padding(16).background(.ultraThinMaterial)

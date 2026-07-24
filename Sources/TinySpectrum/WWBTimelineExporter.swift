@@ -99,7 +99,7 @@ enum WWBTimelineExporter {
 
         let extended: [String: Any] = [
             "Band": "Wideband",
-            "Creator": "TinySpectrum 2.1.0",
+            "Creator": "TinySpectrum 2.1.1-beta.1",
             "ScanName": [safeTitle],
             "UserCurveColors": ["#ffff00"]
         ]
