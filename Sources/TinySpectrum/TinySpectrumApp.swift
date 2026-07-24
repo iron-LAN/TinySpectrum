@@ -4,11 +4,19 @@ import Sparkle
 @main
 struct TinySpectrumApp: App {
     @StateObject private var model = AppModel()
-    private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true,
-        updaterDelegate: nil,
-        userDriverDelegate: nil
-    )
+    private let updaterController: SPUStandardUpdaterController
+
+    init() {
+        let controller = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        updaterController = controller
+        if controller.updater.automaticallyChecksForUpdates {
+            controller.updater.checkForUpdatesInBackground()
+        }
+    }
 
     var body: some Scene {
         WindowGroup { ContentView().environmentObject(model).frame(minWidth: 820, minHeight: 680) }
