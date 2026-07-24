@@ -14,12 +14,13 @@ final class WWBTimelineExporterTests: XCTestCase {
 
     func testPeakHoldUsesHighestLevelAtEachFrequency() {
         var scan = makeScan(captureCount: 3)
-        scan.captures?[1] = ScanCapture(date: scan.date.addingTimeInterval(2), points: [
+        let startDate = scan.date
+        scan.captures?[1] = ScanCapture(date: startDate.addingTimeInterval(2), points: [
             ScanPoint(frequency: 100_000, level: -90),
             ScanPoint(frequency: 125_000, level: -80),
             ScanPoint(frequency: 150_000, level: -70)
         ])
-        scan.captures?[2] = ScanCapture(date: scan.date.addingTimeInterval(4), points: [
+        scan.captures?[2] = ScanCapture(date: startDate.addingTimeInterval(4), points: [
             ScanPoint(frequency: 100_000, level: -75),
             ScanPoint(frequency: 125_000, level: -85),
             ScanPoint(frequency: 150_000, level: -55)
