@@ -13,6 +13,28 @@
 
 TinySpectrum turns a tinySA Ultra into a focused desktop scanning tool. It connects automatically over USB, keeps scan history locally, supports continuous timeline capture, and exports measurements for Shure Wireless Workbench.
 
+<p align="center">
+  <img src="https://github.com/iron-LAN/TinySpectrum/releases/download/v2.2.0/Peak.Hold.png" alt="TinySpectrum showing a continuous scan with cumulative Peak Hold" width="100%">
+</p>
+<p align="center"><em>Continuous scanning with the cumulative Peak Hold overlay.</em></p>
+
+## Interface
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>Focused scan</strong></td>
+    <td width="50%" align="center"><strong>Scan comparison</strong></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/iron-LAN/TinySpectrum/releases/download/v2.2.0/Single.Scan.Visible.png" alt="TinySpectrum displaying one selected scan"></td>
+    <td><img src="https://github.com/iron-LAN/TinySpectrum/releases/download/v2.2.0/Multiple.Scans.Visible.png" alt="TinySpectrum comparing a continuous session with a regular scan"></td>
+  </tr>
+  <tr>
+    <td align="center">Keep one continuous session visible for a clear timeline.</td>
+    <td align="center">Overlay regular scans when a comparison is useful.</td>
+  </tr>
+</table>
+
 ## Highlights
 
 - **Automatic tinySA discovery** — connect by USB and TinySpectrum finds the serial device for you.
@@ -23,6 +45,7 @@ TinySpectrum turns a tinySA Ultra into a focused desktop scanning tool. It conne
 - **Cumulative Peak Hold** — a red overlay retains the strongest measurement at every frequency and grows as new peaks arrive.
 - **Visible scan countdown** — a circular timer shows when the next continuous capture will begin.
 - **Multiple scan overlays** — compare saved scans using distinct trace colors.
+- **Clear continuous timelines** — only one continuous session is displayed at a time, while regular scans remain available as comparison overlays.
 - **Reusable presets** — save frequently scanned frequency ranges for one-click recall.
 - **Wireless Workbench export** — export regular scans as WWB-compatible CSV and continuous sessions as `.sdb3` timeline data with one antenna curve.
 - **Private by design** — scans and presets remain on the Mac; approximate location is used only for optional city-based export filenames.
