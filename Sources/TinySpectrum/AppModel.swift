@@ -15,6 +15,8 @@ final class AppModel: ObservableObject {
     @Published var maxHz = 5_300_000_000.0
     @Published var rbw: RBW = .khz30
     @Published var scanInterval: ScanInterval = .minute1
+    @Published var intervalProgress: Double?
+    @Published var nextScanRemaining: TimeInterval?
     @Published var scans: [SpectrumScan] = []
     @Published var selectedScanIDs: Set<UUID> = []
     @Published var timelinePosition = 1.0
@@ -123,6 +125,8 @@ final class AppModel: ObservableObject {
             guard let self else { return }
             var continuousGroupID: UUID?
             repeat {
+                intervalProgress = nil
+                nextScanRemaining = nil
                 let sweepStarted = Date()
                 do {
                     status = "Scanning \(SpectrumScan.short(startHz)) – \(SpectrumScan.short(stopHz))…"
@@ -145,10 +149,13 @@ final class AppModel: ObservableObject {
                     }
                     save()
                     if shouldRepeat, continuous, !Task.isCancelled {
-                        let remaining = scanInterval.seconds - Date().timeIntervalSince(sweepStarted)
-                        if remaining > 0 {
-                            status += " • every " + scanInterval.label
-                            try await Task.sleep(for: .seconds(remaining))
+                        let deadline = sweepStarted.addingTimeInterval(scanInterval.seconds)
+                        while continuous, !Task.isCancelled {
+                            let remaining = deadline.timeIntervalSinceNow
+                            guard remaining > 0 else { break }
+                            nextScanRemaining = remaining
+                            intervalProgress = min(1, max(0, 1 - remaining / scanInterval.seconds))
+                            try await Task.sleep(for: .milliseconds(200))
                         }
                     }
                 } catch {
@@ -156,13 +163,18 @@ final class AppModel: ObservableObject {
                     break
                 }
             } while continuous && !Task.isCancelled
+            intervalProgress = nil
+            nextScanRemaining = nil
             isScanning = false
+            if Task.isCancelled || (shouldRepeat && !continuous) { status = "Scan stopped" }
             continuous = false
         }
     }
 
     func stop() {
         continuous = false
+        intervalProgress = nil
+        nextScanRemaining = nil
         scanTask?.cancel()
         Task { await serial.stop() }
         if isScanning { status = "Stopping scan…" }

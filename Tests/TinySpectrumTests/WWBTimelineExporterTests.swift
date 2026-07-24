@@ -13,9 +13,23 @@ final class WWBTimelineExporterTests: XCTestCase {
     }
 
     func testPeakHoldUsesHighestLevelAtEachFrequency() {
-        let scan = makeScan(captureCount: 3)
+        var scan = makeScan(captureCount: 3)
+        let startDate = scan.date
+        scan.captures?[1] = ScanCapture(date: startDate.addingTimeInterval(2), points: [
+            ScanPoint(frequency: 100_000, level: -90),
+            ScanPoint(frequency: 125_000, level: -80),
+            ScanPoint(frequency: 150_000, level: -70)
+        ])
+        scan.captures?[2] = ScanCapture(date: startDate.addingTimeInterval(4), points: [
+            ScanPoint(frequency: 100_000, level: -75),
+            ScanPoint(frequency: 125_000, level: -85),
+            ScanPoint(frequency: 150_000, level: -55)
+        ])
         XCTAssertEqual(scan.peakHoldPoints.map(\.frequency), [100_000, 125_000, 150_000])
-        XCTAssertEqual(scan.peakHoldPoints.map(\.level), [-78, -68, -58])
+        XCTAssertEqual(scan.peakHoldPoints.map(\.level), [-75, -70, -55])
+        XCTAssertEqual(scan.peakHoldPoints(atCaptureIndex: 0).map(\.level), [-80, -70, -60])
+        XCTAssertEqual(scan.peakHoldPoints(atCaptureIndex: 1).map(\.level), [-80, -70, -60])
+        XCTAssertEqual(scan.peakHoldPoints(atCaptureIndex: 2).map(\.level), [-75, -70, -55])
     }
 
     func testTimelineRecordsAndChecksumsMatchShureContainer() throws {

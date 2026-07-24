@@ -152,7 +152,11 @@ struct ContentView: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(model.estimatedSweepDuration > model.scanInterval.seconds ? Color.orange : Color.secondary)
                     .help("Estimated TinySA sweep time for the selected span and resolution")
-                if model.isScanning { ProgressView().controlSize(.small) }
+                if let progress = model.intervalProgress, let remaining = model.nextScanRemaining {
+                    scanCountdown(progress: progress, remaining: remaining)
+                } else if model.isScanning {
+                    ProgressView().controlSize(.small)
+                }
             }.controlSize(.large)
         }
     }
@@ -175,6 +179,21 @@ struct ContentView: View {
         let minutes = seconds / 60
         let remainder = seconds % 60
         return remainder == 0 ? "\(minutes)m" : "\(minutes)m \(remainder)s"
+    }
+    private func scanCountdown(progress: Double, remaining: TimeInterval) -> some View {
+        ZStack {
+            Circle().stroke(.secondary.opacity(0.25), lineWidth: 3)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(Color.purple, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text(formattedDuration(remaining))
+                .font(.system(size: 8, weight: .bold, design: .rounded).monospacedDigit())
+                .minimumScaleFactor(0.65)
+        }
+        .frame(width: 38, height: 38)
+        .help("Time remaining until the next continuous scan")
+        .accessibilityLabel("Next scan in \(formattedDuration(remaining))")
     }
     private func applyDraftRange() {
         let start = max(100_000, min(draftStartMHz * 1e6, model.maxHz - 1))
