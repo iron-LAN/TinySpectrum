@@ -12,10 +12,11 @@ struct SpectrumView: View {
     let selected: Set<UUID>
     let timelinePosition: Double
     let timelineCaptureIndex: Int?
+    let peakHoldEnabled: Bool
     @State private var hover: HoverSample?
 
     var visible: [(Int, SpectrumScan)] { scans.enumerated().filter { selected.contains($0.element.id) } }
-    private var allPoints: [ScanPoint] { visible.flatMap { $0.1.points(atCaptureIndex: timelineCaptureIndex) } }
+    private var allPoints: [ScanPoint] { visible.flatMap { displayPoints(for: $0.1) } }
 
     var body: some View {
         GeometryReader { geo in
@@ -29,7 +30,7 @@ struct SpectrumView: View {
                 guard !visible.isEmpty else { return }
                 for (index, scan) in visible {
                     var path = Path()
-                    for (i, point) in scan.points(atCaptureIndex: timelineCaptureIndex).enumerated() {
+                    for (i, point) in displayPoints(for: scan).enumerated() {
                         let location = screenLocation(point, plot: plot, bounds: bounds)
                         if i == 0 { path.move(to: location) } else { path.addLine(to: location) }
                     }
@@ -93,7 +94,7 @@ struct SpectrumView: View {
         guard plot.contains(cursor) else { return nil }
         var result: HoverSample?, bestDistance = Double.greatestFiniteMagnitude
         for (index, scan) in visible {
-            for point in scan.points(atCaptureIndex: timelineCaptureIndex) {
+            for point in displayPoints(for: scan) {
                 let location = screenLocation(point, plot: plot, bounds: bounds)
                 let distance = hypot(location.x - cursor.x, location.y - cursor.y)
                 if distance < bestDistance {
@@ -103,6 +104,10 @@ struct SpectrumView: View {
             }
         }
         return result
+    }
+
+    private func displayPoints(for scan: SpectrumScan) -> [ScanPoint] {
+        peakHoldEnabled && scan.isContinuous ? scan.peakHoldPoints : scan.points(atCaptureIndex: timelineCaptureIndex)
     }
 
     private func drawGrid(context: GraphicsContext, plot: CGRect) {

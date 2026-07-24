@@ -19,6 +19,17 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
     var title: String { "\(Self.short(startHz)) – \(Self.short(stopHz))" }
     var captureCount: Int { captures?.count ?? 1 }
     var isContinuous: Bool { captures != nil }
+    var peakHoldPoints: [ScanPoint] {
+        guard let captures, let first = captures.first else { return points }
+        var peak = first.points
+        for capture in captures.dropFirst() {
+            for index in 0..<min(peak.count, capture.points.count) {
+                guard abs(peak[index].frequency - capture.points[index].frequency) < 1 else { continue }
+                if capture.points[index].level > peak[index].level { peak[index] = capture.points[index] }
+            }
+        }
+        return peak
+    }
     func points(at timelinePosition: Double) -> [ScanPoint] {
         guard let captures, !captures.isEmpty else { return points }
         let index = min(captures.count - 1, max(0, Int((timelinePosition * Double(captures.count - 1)).rounded())))

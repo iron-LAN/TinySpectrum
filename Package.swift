@@ -12,6 +12,7 @@ let package = Package(
         .executableTarget(
             name: "TinySpectrum",
             dependencies: [.product(name: "Sparkle", package: "Sparkle")]
-        )
+        ),
+        .testTarget(name: "TinySpectrumTests", dependencies: ["TinySpectrum"])
     ]
 )
