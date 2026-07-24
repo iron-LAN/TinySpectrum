@@ -13,7 +13,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build app
         run: ./scripts/build-app.sh
@@ -21,11 +21,22 @@ jobs:
       - name: Package app
         run: ditto -c -k --sequesterRsrc --keepParent dist/TinySpectrum.app TinySpectrum-${GITHUB_REF_NAME}-macOS.zip
 
+      - name: Sign update archive
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          test -n "$SPARKLE_ED_PRIVATE_KEY"
+          SIGN_TOOL=$(find .build/artifacts -type f -name sign_update -perm +111 -print -quit)
+          test -n "$SIGN_TOOL"
+          printf '%s\n' "$SPARKLE_ED_PRIVATE_KEY" | "$SIGN_TOOL" --ed-key-file - "TinySpectrum-${GITHUB_REF_NAME}-macOS.zip" > update-signature.txt
+          test -s update-signature.txt
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
           gh release create "$GITHUB_REF_NAME"
           "TinySpectrum-${GITHUB_REF_NAME}-macOS.zip"
+          "update-signature.txt"
           --title "TinySpectrum ${GITHUB_REF_NAME}"
           --generate-notes
