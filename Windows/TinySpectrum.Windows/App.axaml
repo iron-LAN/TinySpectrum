@@ -17,13 +17,28 @@
       <Setter Property="Background" Value="#10BFE8"/>
       <Setter Property="Foreground" Value="#041117"/>
     </Style>
+    <Style Selector="Button.primary:disabled">
+      <Setter Property="Background" Value="#172129"/>
+      <Setter Property="Foreground" Value="#52616C"/>
+      <Setter Property="Opacity" Value="0.72"/>
+    </Style>
     <Style Selector="Button.purple">
       <Setter Property="Background" Value="#8B3FD1"/>
       <Setter Property="Foreground" Value="White"/>
     </Style>
+    <Style Selector="Button.purple:disabled">
+      <Setter Property="Background" Value="#1C202A"/>
+      <Setter Property="Foreground" Value="#52616C"/>
+      <Setter Property="Opacity" Value="0.72"/>
+    </Style>
     <Style Selector="Button.danger">
       <Setter Property="Background" Value="#3A2028"/>
       <Setter Property="Foreground" Value="#FF8092"/>
+    </Style>
+    <Style Selector="Button.danger:disabled">
+      <Setter Property="Background" Value="#1A2026"/>
+      <Setter Property="Foreground" Value="#52616C"/>
+      <Setter Property="Opacity" Value="0.72"/>
     </Style>
     <Style Selector="Button.secondary">
       <Setter Property="Background" Value="#172A37"/>
