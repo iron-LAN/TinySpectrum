@@ -50,10 +50,11 @@
               <Button Content="SCAN" Command="{Binding ScanCommand}" Classes="primary"/>
               <Button Grid.Column="1" Content="STOP" Command="{Binding StopCommand}" Classes="danger"/>
               <Button Grid.Column="2" Content="CONTINUOUS" Command="{Binding ContinuousCommand}" Classes="purple"/>
-              <Grid Grid.Column="3" ColumnDefinitions="170,85,72" ColumnSpacing="7" HorizontalAlignment="Right" Margin="10,0,0,0">
+              <Grid Grid.Column="3" ColumnDefinitions="170,85,96" ColumnSpacing="7" HorizontalAlignment="Right" Margin="10,0,0,0">
                 <ComboBox ItemsSource="{Binding RbwOptions}" SelectedItem="{Binding SelectedRbw}"/>
                 <ComboBox Grid.Column="1" ItemsSource="{Binding IntervalOptions}" SelectedItem="{Binding SelectedInterval}"/>
-                <TextBlock Grid.Column="2" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" Foreground="#8297A7" FontFamily="Consolas"/>
+                <TextBlock Grid.Column="2" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" HorizontalAlignment="Right"
+                           Foreground="#8297A7" FontFamily="Consolas" Margin="0,0,7,0"/>
               </Grid>
               <local:CountdownControl Grid.Column="4" Width="42" Height="42"
                                       Progress="{Binding IntervalProgress}" RemainingText="{Binding CountdownText}"

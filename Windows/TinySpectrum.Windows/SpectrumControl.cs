@@ -320,11 +320,26 @@ public sealed class CountdownControl : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        if (!Active && Progress is null) return;
         var center = new Point(Bounds.Width / 2, Bounds.Height / 2);
         var radius = Math.Max(4, Math.Min(Bounds.Width, Bounds.Height) / 2 - 4);
-        context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.Parse("#39434F")), 3), center, radius, radius);
-        if (!Active && Progress is null) return;
         var progress = Progress;
+        if (progress is null)
+        {
+            var phase = (int)Math.Floor(_spinnerAngle / (Math.PI * 2) * 12) % 12;
+            for (var index = 0; index < 12; index++)
+            {
+                var angle = -Math.PI / 2 + index * Math.PI * 2 / 12;
+                var distance = (index - phase + 12) % 12;
+                var alpha = (byte)Math.Clamp(225 - distance * 15, 55, 225);
+                var brush = new SolidColorBrush(Color.FromArgb(alpha, 150, 157, 166));
+                var inner = new Point(center.X + radius * .48 * Math.Cos(angle), center.Y + radius * .48 * Math.Sin(angle));
+                var outer = new Point(center.X + radius * .84 * Math.Cos(angle), center.Y + radius * .84 * Math.Sin(angle));
+                context.DrawLine(new Pen(brush, 3, lineCap: PenLineCap.Round), inner, outer);
+            }
+            return;
+        }
+        context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.Parse("#39434F")), 3), center, radius, radius);
         var start = progress is null ? _spinnerAngle : -Math.PI / 2;
         var end = progress is null
             ? start + Math.PI * .55
@@ -336,9 +351,7 @@ public sealed class CountdownControl : Control
             drawing.ArcTo(new(center.X + radius * Math.Cos(end), center.Y + radius * Math.Sin(end)),
                 new(radius, radius), 0, progress is not null && progress > .5, SweepDirection.Clockwise);
         }
-        var activeColor = progress is null ? "#8497A6" : "#A855F7";
-        context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse(activeColor)), 3), geometry);
-        if (progress is null) return;
+        context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse("#A855F7")), 3), geometry);
         var text = RemainingText;
         var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             new Typeface("Inter", FontStyle.Normal, FontWeight.Bold), 9, Brushes.White);
