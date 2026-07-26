@@ -43,8 +43,8 @@ struct ContentView: View {
         .preferredColorScheme(appearance == "dark" ? .dark : .light)
         .tint(Color(red: 0.08, green: 0.72, blue: 0.94))
         .onAppear { syncDraftRange() }
-        .onChange(of: model.startHz) { model.frequencyRangeDidChange() }
-        .onChange(of: model.stopHz) { model.frequencyRangeDidChange() }
+        .onChange(of: model.startHz) { _ in model.frequencyRangeDidChange() }
+        .onChange(of: model.stopHz) { _ in model.frequencyRangeDidChange() }
     }
 
     private var appBackground: some View {
@@ -210,7 +210,18 @@ struct ContentView: View {
                 Text("\(model.selectedScanIDs.count) VISIBLE").font(.caption2).foregroundStyle(.secondary)
                 Button { model.selectedScanIDs = [] } label: { Text("Clear").font(.caption) }.buttonStyle(.plain)
             }
-            if model.scans.isEmpty { ContentUnavailableView("No scans yet", systemImage: "waveform", description: Text("Captured scans stay on this Mac.")) }
+            if model.scans.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "waveform")
+                        .font(.title)
+                    Text("No scans yet")
+                        .font(.headline)
+                    Text("Captured scans stay on this Mac.")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
             else {
                 List { ForEach(Array(model.scans.enumerated()), id: \.element.id) { index, scan in
                     HStack(spacing: 10) {
@@ -250,10 +261,7 @@ struct ContentView: View {
         }
         let points = scan.points(atCaptureIndex: model.timelineCaptureIndex)
         let csv = points.map { String(format: "%.6f,%.2f", $0.frequency / 1e6, $0.level) }.joined(separator: "\n") + "\n"
-        let preset = model.presets.first { abs($0.startHz - scan.startHz) < 1 && abs($0.stopHz - scan.stopHz) < 1 }?.name ?? "Custom"
-        let city = model.currentCity ?? "UnknownLocation"
-        let resolution = scan.rbw.components(separatedBy: "(").first?.components(separatedBy: "•").first?.trimmingCharacters(in: .whitespaces) ?? scan.rbw
-        let filename = [preset, resolution, city].map(safeFilenamePart).joined(separator: "_") + ".csv"
+        let filename = ExportFilename.baseName(date: scan.date, location: model.currentCity) + ".csv"
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.commaSeparatedText]
         panel.canCreateDirectories = true
@@ -270,10 +278,7 @@ struct ContentView: View {
     }
 
     private func exportTimelineToWWB(_ scan: SpectrumScan) {
-        let preset = model.presets.first { abs($0.startHz - scan.startHz) < 1 && abs($0.stopHz - scan.stopHz) < 1 }?.name ?? "Custom"
-        let city = model.currentCity ?? "UnknownLocation"
-        let resolution = scan.rbw.components(separatedBy: "(").first?.components(separatedBy: "â€¢").first?.trimmingCharacters(in: .whitespaces) ?? scan.rbw
-        let baseName = [preset, resolution, city, "Timeline"].map(safeFilenamePart).joined(separator: "_")
+        let baseName = ExportFilename.baseName(date: scan.date, location: model.currentCity)
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "sdb3") ?? .data]
         panel.canCreateDirectories = true
@@ -290,11 +295,6 @@ struct ContentView: View {
         }
     }
 
-    private func safeFilenamePart(_ value: String) -> String {
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-"))
-        let words = value.components(separatedBy: allowed.inverted).filter { !$0.isEmpty }
-        return words.isEmpty ? "Unknown" : words.joined(separator: "-")
-    }
 }
 
 struct VerticalTimelineSlider: View {

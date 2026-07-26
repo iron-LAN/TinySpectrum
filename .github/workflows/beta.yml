@@ -30,6 +30,15 @@ jobs:
       - name: Build app
         run: ./scripts/build-app.sh
 
+      - name: Verify macOS 13 deployment target
+        run: |
+          test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' dist/TinySpectrum.app/Contents/Info.plist)" = "13.0"
+          otool -l dist/TinySpectrum.app/Contents/MacOS/TinySpectrum | awk '
+            /LC_BUILD_VERSION/ { in_build_version = 1; next }
+            in_build_version && /minos/ { if ($2 != "13.0") exit 1; found = 1; exit }
+            END { if (!found) exit 1 }
+          '
+
       - name: Package app
         env:
           VERSION: ${{ env.BETA_VERSION }}
