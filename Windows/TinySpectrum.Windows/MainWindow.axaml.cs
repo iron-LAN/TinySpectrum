@@ -27,7 +27,7 @@ public partial class MainWindow : Window
 
     private void Visibility_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox { Tag: SpectrumScan scan }) ViewModel.ToggleVisibility(scan);
+        if (sender is Button { Tag: SpectrumScan scan }) ViewModel.ToggleVisibility(scan);
     }
 
     private async void Export_Click(object? sender, RoutedEventArgs e)

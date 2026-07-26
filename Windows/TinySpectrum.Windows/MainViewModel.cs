@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Globalization;
 using Avalonia.Threading;
 
 namespace TinySpectrum.Windows;
@@ -22,6 +23,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private string _presetName = "";
     private double _startMhz = 470;
     private double _stopMhz = 700;
+    private string _startMhzInput = "470";
+    private string _stopMhzInput = "700";
     private RbwOption _selectedRbw = RbwOption.All[4];
     private IntervalOption _selectedInterval = IntervalOption.All[2];
     private double? _intervalProgress;
@@ -45,6 +48,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         var stored = _store.Load();
         foreach (var scan in stored.Scans) { scan.IsVisible = false; Scans.Add(scan); }
+        RefreshScanColors();
         foreach (var preset in stored.Presets.Count > 0 ? stored.Presets : DefaultPresets()) Presets.Add(preset);
 
         ScanCommand = new(() => BeginScanAsync(false), () => CanScan);
@@ -71,6 +75,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string Status { get => _status; private set => Set(ref _status, value); }
     public double StartMhz { get => _startMhz; set { if (Set(ref _startMhz, Math.Max(.1, value))) RangeChanged(); } }
     public double StopMhz { get => _stopMhz; set { if (Set(ref _stopMhz, Math.Max(StartMhz + .001, value))) RangeChanged(); } }
+    public string StartMhzInput { get => _startMhzInput; set => Set(ref _startMhzInput, value); }
+    public string StopMhzInput { get => _stopMhzInput; set => Set(ref _stopMhzInput, value); }
     public RbwOption SelectedRbw
     {
         get => _selectedRbw;
@@ -137,7 +143,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                         Points = points.ToList(),
                         Captures = continuous ? [capture] : null
                     };
-                    Scans.Insert(0, session); ShowScan(session);
+                    Scans.Insert(0, session); RefreshScanColors(); ShowScan(session);
                 }
                 Status = continuous ? $"Continuous scan • {session.CaptureCount} captures" : $"Captured {points.Count} points";
                 Save(); NotifySpectrum();
@@ -178,7 +184,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void DeleteScan(SpectrumScan scan)
     {
-        Scans.Remove(scan); Save(); NotifySpectrum();
+        Scans.Remove(scan); RefreshScanColors(); Save(); NotifySpectrum();
     }
 
     private void ShowScan(SpectrumScan scan)
@@ -191,7 +197,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         scan.IsVisible = true;
     }
 
-    public void ApplyPreset(ScanPreset preset) { StartMhz = preset.StartHz / 1e6; StopMhz = preset.StopHz / 1e6; }
+    public void ApplyPreset(ScanPreset preset)
+    {
+        StartMhz = preset.StartHz / 1e6; StopMhz = preset.StopHz / 1e6;
+        StartMhzInput = FormatMhz(StartMhz); StopMhzInput = FormatMhz(StopMhz);
+    }
 
     public void DeletePreset(ScanPreset preset)
     {
@@ -201,10 +211,28 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void SetRange()
     {
-        StartMhz = Math.Clamp(StartMhz, .1, 5299.999);
-        StopMhz = Math.Clamp(StopMhz, StartMhz + .001, 5300);
+        if (!TryParseMhz(StartMhzInput, out var start) || !TryParseMhz(StopMhzInput, out var stop))
+        {
+            Status = "Enter valid start and stop frequencies in MHz";
+            return;
+        }
+        StartMhz = Math.Clamp(start, .1, 5299.999);
+        StopMhz = Math.Clamp(stop, StartMhz + .001, 5300);
+        StartMhzInput = FormatMhz(StartMhz); StopMhzInput = FormatMhz(StopMhz);
         RangeChanged();
         Status = $"Range set to {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}";
+    }
+
+    private static bool TryParseMhz(string text, out double value) =>
+        double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value) ||
+        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+
+    private static string FormatMhz(double value) => value.ToString("0.######", CultureInfo.CurrentCulture);
+
+    private void RefreshScanColors()
+    {
+        string[] colors = ["#19D9FF", "#B56BFF", "#32E38A", "#FFB547", "#FF647C", "#65A8FF"];
+        for (var index = 0; index < Scans.Count; index++) Scans[index].DisplayColor = colors[index % colors.Length];
     }
 
     private void SavePreset()

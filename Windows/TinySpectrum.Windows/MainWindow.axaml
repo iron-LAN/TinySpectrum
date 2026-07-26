@@ -38,9 +38,9 @@
             </ItemsControl>
             <Grid ColumnDefinitions="Auto,120,Auto,120,Auto,Auto,*,Auto" ColumnSpacing="8">
               <TextBlock Text="START" Classes="fieldLabel"/>
-              <NumericUpDown Grid.Column="1" Value="{Binding StartMhz}" Minimum="0.1" Maximum="5300" Increment="1" FormatString="0.######" ShowButtonSpinner="False"/>
+              <TextBox Grid.Column="1" Text="{Binding StartMhzInput}" HorizontalContentAlignment="Right"/>
               <TextBlock Grid.Column="2" Text="STOP" Classes="fieldLabel"/>
-              <NumericUpDown Grid.Column="3" Value="{Binding StopMhz}" Minimum="0.101" Maximum="5300" Increment="1" FormatString="0.######" ShowButtonSpinner="False"/>
+              <TextBox Grid.Column="3" Text="{Binding StopMhzInput}" HorizontalContentAlignment="Right"/>
               <TextBlock Grid.Column="4" Text="MHz" Classes="fieldLabel"/>
               <Button Grid.Column="5" Content="SET" Command="{Binding SetRangeCommand}" Classes="secondary"/>
               <TextBox Grid.Column="6" Text="{Binding PresetName}" PlaceholderText="Preset name" HorizontalAlignment="Stretch"/>
@@ -79,15 +79,23 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:SpectrumScan">
                 <Border BorderBrush="#263845" BorderThickness="0,0,0,1" Padding="3,11">
-                  <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
-                    <CheckBox IsChecked="{Binding IsVisible, Mode=OneWay}" Tag="{Binding .}" Click="Visibility_Click" VerticalAlignment="Center"/>
-                    <StackPanel Grid.Column="1" Spacing="2">
+                  <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
+                    <Ellipse Width="9" Height="9" Fill="{Binding DisplayColor}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Spacing="3">
                       <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
                       <TextBlock Text="{Binding DetailsLabel}" FontSize="10" Foreground="#8297A7" TextWrapping="Wrap"/>
                       <TextBlock Text="{Binding CaptureLabel}" FontSize="10" Foreground="#BE7BFF"/>
                     </StackPanel>
-                    <Button Grid.Column="2" Content="WWB" Tag="{Binding .}" Click="Export_Click" Classes="wwb"/>
-                    <Button Grid.Column="3" Content="×" Tag="{Binding .}" Click="Delete_Click" Classes="icon"/>
+                    <Button Grid.Column="2" Tag="{Binding .}" Click="Visibility_Click" Classes="scanSelector">
+                      <Grid Width="16" Height="16">
+                        <Ellipse Stroke="{Binding DisplayColor}" StrokeThickness="1.5"/>
+                        <Ellipse Width="8" Height="8" Fill="{Binding DisplayColor}" IsVisible="{Binding IsVisible}"/>
+                      </Grid>
+                    </Button>
+                    <Button Grid.Column="3" Content="WWB" Tag="{Binding .}" Click="Export_Click" Classes="wwb"/>
+                    <Button Grid.Column="4" Tag="{Binding .}" Click="Delete_Click" Classes="scanDelete">
+                      <PathIcon Width="14" Height="14" Data="M6,19 C6,20.1 6.9,21 8,21 L16,21 C17.1,21 18,20.1 18,19 L18,7 L6,7 Z M8,9 L16,9 L16,19 L8,19 Z M15.5,4 L14.5,3 L9.5,3 L8.5,4 L5,4 L5,6 L19,6 L19,4 Z"/>
+                    </Button>
                   </Grid>
                 </Border>
               </DataTemplate>
