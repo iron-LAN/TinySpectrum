@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 private struct HoverSample {
     let point: ScanPoint
@@ -14,6 +15,7 @@ struct SpectrumView: View {
     let timelineCaptureIndex: Int?
     let peakHoldEnabled: Bool
     @State private var hover: HoverSample?
+    @State private var frequencyWindow: ClosedRange<Double>?
 
     var visible: [(Int, SpectrumScan)] { scans.enumerated().filter { selected.contains($0.element.id) } }
     private var allPoints: [ScanPoint] {
@@ -55,6 +57,11 @@ struct SpectrumView: View {
                 }
             }
             .contentShape(Rectangle())
+            .background {
+                ScrollWheelReader { location, delta in
+                    zoom(at: location, delta: delta, plot: plot)
+                }
+            }
             .onContinuousHover { phase in
                 switch phase {
                 case .active(let location): hover = nearestSample(to: location, plot: plot, bounds: bounds)
@@ -83,13 +90,37 @@ struct SpectrumView: View {
                 }
             }
         }
+        .onChange(of: selected) { _ in
+            frequencyWindow = nil
+            hover = nil
+        }
     }
 
     private var dataBounds: (minF: Double, maxF: Double, minL: Double, maxL: Double) {
-        guard let minF = allPoints.map(\.frequency).min(), let maxF = allPoints.map(\.frequency).max(), maxF > minF else {
+        guard let fullRange = visibleFrequencyRange else {
             return (0, 1, -120, -20)
         }
-        return (minF, maxF, -120, -20)
+        let range = FrequencyZoom.clamped(frequencyWindow ?? fullRange, to: fullRange)
+        return (range.lowerBound, range.upperBound, -120, -20)
+    }
+
+    private var visibleFrequencyRange: ClosedRange<Double>? {
+        guard let minF = allPoints.map(\.frequency).min(), let maxF = allPoints.map(\.frequency).max(), maxF > minF else { return nil }
+        return minF...maxF
+    }
+
+    private func zoom(at location: CGPoint, delta: CGFloat, plot: CGRect) {
+        guard plot.contains(location), let fullRange = visibleFrequencyRange, delta != 0 else { return }
+        let anchor = min(1, max(0, (location.x - plot.minX) / plot.width))
+        let sensitivity = 0.035
+        let scale = exp(-Double(delta) * sensitivity)
+        frequencyWindow = FrequencyZoom.window(
+            current: frequencyWindow ?? fullRange,
+            full: fullRange,
+            anchor: Double(anchor),
+            scale: scale
+        )
+        hover = nil
     }
 
     private func plotRect(_ size: CGSize) -> CGRect {
@@ -146,5 +177,76 @@ struct SpectrumView: View {
             context.draw(Text(String(format: "%.0f", value)).font(.caption.monospacedDigit()).foregroundColor(.secondary), at: .init(x: plot.minX - 10, y: plot.minY + t * plot.height), anchor: .trailing)
         }
         context.draw(Text("dBm").font(.caption2.bold()).foregroundColor(.secondary), at: .init(x: plot.minX - 30, y: plot.minY - 14), anchor: .center)
+    }
+}
+
+enum FrequencyZoom {
+    static func window(current: ClosedRange<Double>, full: ClosedRange<Double>, anchor: Double, scale: Double) -> ClosedRange<Double> {
+        let fullSpan = full.upperBound - full.lowerBound
+        guard fullSpan > 0 else { return full }
+        let currentRange = clamped(current, to: full)
+        let currentSpan = currentRange.upperBound - currentRange.lowerBound
+        let minimumSpan = max(1, fullSpan / 1_000)
+        let newSpan = min(fullSpan, max(minimumSpan, currentSpan * scale))
+        if newSpan >= fullSpan { return full }
+
+        let position = min(1, max(0, anchor))
+        let anchorFrequency = currentRange.lowerBound + currentSpan * position
+        var lower = anchorFrequency - newSpan * position
+        lower = min(max(lower, full.lowerBound), full.upperBound - newSpan)
+        return lower...(lower + newSpan)
+    }
+
+    static func clamped(_ range: ClosedRange<Double>, to full: ClosedRange<Double>) -> ClosedRange<Double> {
+        let fullSpan = full.upperBound - full.lowerBound
+        let span = min(fullSpan, max(0, range.upperBound - range.lowerBound))
+        guard span < fullSpan else { return full }
+        let lower = min(max(range.lowerBound, full.lowerBound), full.upperBound - span)
+        return lower...(lower + span)
+    }
+}
+
+private struct ScrollWheelReader: NSViewRepresentable {
+    let onScroll: (CGPoint, CGFloat) -> Void
+
+    func makeNSView(context: Context) -> ScrollWheelView {
+        let view = ScrollWheelView()
+        view.onScroll = onScroll
+        return view
+    }
+
+    func updateNSView(_ nsView: ScrollWheelView, context: Context) {
+        nsView.onScroll = onScroll
+    }
+}
+
+private final class ScrollWheelView: NSView {
+    var onScroll: ((CGPoint, CGFloat) -> Void)?
+    private var eventMonitor: Any?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            removeMonitor()
+        } else if eventMonitor == nil {
+            eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+                guard let self, let window = self.window, event.window === window else { return event }
+                let location = self.convert(event.locationInWindow, from: nil)
+                guard self.bounds.contains(location) else { return event }
+                self.onScroll?(location, event.scrollingDeltaY)
+                return event
+            }
+        }
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    deinit { removeMonitor() }
+
+    private func removeMonitor() {
+        if let eventMonitor {
+            NSEvent.removeMonitor(eventMonitor)
+            self.eventMonitor = nil
+        }
     }
 }
