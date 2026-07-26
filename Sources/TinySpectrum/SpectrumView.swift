@@ -214,6 +214,7 @@ struct SpectrumView: View {
 
 enum FrequencyAxis {
     private static let minimumLabelSpacing = 100.0
+    private static let minimumTickStep = 25_000.0
 
     static func tickStep(for range: ClosedRange<Double>, targetIntervals: Double = 4) -> Double {
         let span = max(1, range.upperBound - range.lowerBound)
@@ -221,7 +222,7 @@ enum FrequencyAxis {
         let magnitude = pow(10, floor(log10(rawStep)))
         let normalized = rawStep / magnitude
         let multiplier = [1.0, 2.0, 2.5, 5.0, 10.0].first { $0 >= normalized } ?? 10
-        return multiplier * magnitude
+        return max(minimumTickStep, multiplier * magnitude)
     }
 
     static func tickStep(for range: ClosedRange<Double>, plotWidth: Double) -> Double {

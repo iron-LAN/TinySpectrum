@@ -7,6 +7,7 @@ final class FrequencyAxisTests: XCTestCase {
         XCTAssertEqual(FrequencyAxis.tickStep(for: 470_000_000...470_400_000), 100_000)
         XCTAssertEqual(FrequencyAxis.tickStep(for: 470_000_000...470_200_000), 50_000)
         XCTAssertEqual(FrequencyAxis.tickStep(for: 470_000_000...470_100_000), 25_000)
+        XCTAssertEqual(FrequencyAxis.tickStep(for: 470_000_000...470_040_000), 25_000)
     }
 
     func testLabelsAddOnlyNeededMHzPrecision() {
