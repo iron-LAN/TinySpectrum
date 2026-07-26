@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/iron-LAN/TinySpectrum/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/iron-LAN/TinySpectrum?style=for-the-badge&color=7c3aed"></a>
-  <a href="https://github.com/iron-LAN/TinySpectrum/releases/latest"><img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-0ea5e9?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/iron-LAN/TinySpectrum/releases/latest"><img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-0ea5e9?style=for-the-badge&logo=apple&logoColor=white"></a>
   <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-f97316?style=for-the-badge&logo=swift&logoColor=white">
 </p>
 
@@ -90,7 +90,7 @@ Continuous exports preserve the captured timeline so it can be played inside Wir
 
 The current release is ad-hoc signed. On first launch, macOS may require confirmation in **System Settings → Privacy & Security** because the app is not yet notarized with an Apple Developer ID.
 
-TinySpectrum requires **macOS 14 Sonoma or newer**.
+TinySpectrum requires **macOS 13 Ventura or newer**.
 
 ## Quick start
 
@@ -119,7 +119,7 @@ The ZS405 range is conservatively limited to 5.3 GHz. Hardware capabilities and 
 
 Requirements:
 
-- macOS 14 or newer
+- macOS 13 or newer
 - Xcode Command Line Tools with Swift 6
 
 ```sh
