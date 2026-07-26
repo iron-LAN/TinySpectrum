@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>2.3.1-beta.5</Version>
+    <Version>2.3.1</Version>
     <AssemblyName>TinySpectrum</AssemblyName>
     <RootNamespace>TinySpectrum.Windows</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
