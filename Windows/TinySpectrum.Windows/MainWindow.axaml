@@ -53,7 +53,8 @@
               <ComboBox Grid.Column="4" ItemsSource="{Binding RbwOptions}" SelectedItem="{Binding SelectedRbw}"/>
               <ComboBox Grid.Column="5" ItemsSource="{Binding IntervalOptions}" SelectedItem="{Binding SelectedInterval}"/>
               <TextBlock Grid.Column="6" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" Foreground="#8297A7" FontFamily="Consolas"/>
-              <local:CountdownControl Grid.Column="7" Width="42" Height="42" DataContext="{Binding}"/>
+              <local:CountdownControl Grid.Column="7" Width="42" Height="42"
+                                      Progress="{Binding IntervalProgress}" RemainingText="{Binding CountdownText}"/>
             </Grid>
           </StackPanel>
         </Border>
@@ -106,10 +107,11 @@
     </Grid>
 
     <Border Grid.Row="1" Background="#101A24" BorderBrush="#294153" BorderThickness="0,1,0,0" Padding="15,8">
-      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="9">
         <Ellipse Width="7" Height="7" Fill="{Binding ConnectionColor}" VerticalAlignment="Center"/>
         <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="#9DB0BE"/>
         <TextBlock Grid.Column="2" Text="{Binding BatteryText}" Foreground="#9DB0BE" FontFamily="Consolas"/>
+        <Button Grid.Column="3" Content="Check for Updates…" Click="CheckUpdates_Click" Classes="link"/>
       </Grid>
     </Border>
   </Grid>

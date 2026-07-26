@@ -80,6 +80,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool CanScan => IsConnected && !IsScanning;
     public string PresetName { get => _presetName; set { if (Set(ref _presetName, value)) SavePresetCommand.RaiseCanExecuteChanged(); } }
     public string Status { get => _status; private set => Set(ref _status, value); }
+    public void SetStatus(string status) => Status = status;
     public double StartMhz { get => _startMhz; set { if (Set(ref _startMhz, Math.Max(.1, value))) RangeChanged(); } }
     public double StopMhz { get => _stopMhz; set { if (Set(ref _stopMhz, Math.Max(StartMhz + .001, value))) RangeChanged(); } }
     public string StartMhzInput { get => _startMhzInput; set => Set(ref _startMhzInput, value); }

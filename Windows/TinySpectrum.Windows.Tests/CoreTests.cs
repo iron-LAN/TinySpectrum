@@ -32,6 +32,23 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void CountdownUsesExplicitBindableState()
+    {
+        var countdown = new CountdownControl { Progress = .5, RemainingText = "5s" };
+        Assert.Equal(.5, countdown.Progress);
+        Assert.Equal("5s", countdown.RemainingText);
+    }
+
+    [Fact]
+    public void StableReleaseUpdatesSameVersionBeta()
+    {
+        var version = new Version(2, 3, 1);
+        Assert.True(UpdateService.IsUpdateAvailable(version, true, version));
+        Assert.False(UpdateService.IsUpdateAvailable(version, false, version));
+        Assert.True(UpdateService.IsUpdateAvailable(new Version(2, 3, 0), false, version));
+    }
+
+    [Fact]
     public void SweepEstimatorCouplesSpanResolutionAndInterval()
     {
         const double span = 700_000_000;

@@ -242,9 +242,24 @@ public sealed class SpectrumControl : Control
     {
         if (_hover is not { } hover) return;
         var readout = new Rect(plot.Center.X - 142, plot.Top + 5, 284, 30);
-        context.DrawRectangle(new SolidColorBrush(Color.Parse("#DD17232D")), new Pen(new SolidColorBrush(hover.Color), 1), readout);
-        var text = string.Create(CultureInfo.InvariantCulture, $"{hover.Point.Frequency / 1e6:F3} MHz        {hover.Point.Level:F2} dBm");
-        DrawTextCentered(context, text, readout.Center, 12, "#F4FAFF");
+        context.DrawRectangle(new SolidColorBrush(Color.Parse("#DD17232D")), new Pen(new SolidColorBrush(hover.Color), 1),
+            new RoundedRect(readout, 15));
+        var icon = new StreamGeometry();
+        using (var drawing = icon.Open())
+        {
+            var centerY = readout.Center.Y;
+            drawing.BeginFigure(new(readout.X + 14, centerY), false);
+            drawing.LineTo(new(readout.X + 20, centerY));
+            drawing.LineTo(new(readout.X + 24, centerY - 5));
+            drawing.LineTo(new(readout.X + 29, centerY + 6));
+            drawing.LineTo(new(readout.X + 34, centerY - 7));
+            drawing.LineTo(new(readout.X + 40, centerY));
+        }
+        context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse("#19D9FF")), 1.6), icon);
+        var frequency = string.Create(CultureInfo.InvariantCulture, $"{hover.Point.Frequency / 1e6:F3} MHz");
+        var level = string.Create(CultureInfo.InvariantCulture, $"{hover.Point.Level:F2} dBm");
+        DrawText(context, frequency, new(readout.X + 50, readout.Y + 7), 12, "#F4FAFF");
+        DrawText(context, level, new(readout.X + 184, readout.Y + 7), 12, "#F4FAFF");
     }
 
     private static void DrawText(DrawingContext context, string text, Point point, double size, string color) =>
@@ -272,21 +287,23 @@ public sealed class SpectrumControl : Control
 
 public sealed class CountdownControl : Control
 {
-    private MainViewModel? _viewModel;
-    public CountdownControl()
+    public static readonly StyledProperty<double?> ProgressProperty =
+        AvaloniaProperty.Register<CountdownControl, double?>(nameof(Progress));
+    public static readonly StyledProperty<string> RemainingTextProperty =
+        AvaloniaProperty.Register<CountdownControl, string>(nameof(RemainingText), "");
+
+    static CountdownControl()
     {
-        DataContextChanged += (_, _) =>
-        {
-            if (_viewModel is not null) _viewModel.PropertyChanged -= Changed;
-            _viewModel = DataContext as MainViewModel;
-            if (_viewModel is not null) _viewModel.PropertyChanged += Changed;
-        };
+        AffectsRender<CountdownControl>(ProgressProperty, RemainingTextProperty);
     }
-    private void Changed(object? sender, PropertyChangedEventArgs e) => InvalidateVisual();
+
+    public double? Progress { get => GetValue(ProgressProperty); set => SetValue(ProgressProperty, value); }
+    public string RemainingText { get => GetValue(RemainingTextProperty); set => SetValue(RemainingTextProperty, value); }
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (_viewModel?.IntervalProgress is not { } progress) return;
+        if (Progress is not { } progress) return;
         var center = Bounds.Center;
         var radius = Math.Max(4, Math.Min(Bounds.Width, Bounds.Height) / 2 - 4);
         context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.Parse("#39434F")), 3), center, radius, radius);
@@ -300,7 +317,7 @@ public sealed class CountdownControl : Control
                 new(radius, radius), 0, progress > .5, SweepDirection.Clockwise);
         }
         context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse("#A855F7")), 3), geometry);
-        var formatted = new FormattedText(_viewModel.CountdownText, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+        var formatted = new FormattedText(RemainingText, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             new Typeface("Inter", FontStyle.Normal, FontWeight.Bold), 9, Brushes.White);
         context.DrawText(formatted, new(center.X - formatted.Width / 2, center.Y - formatted.Height / 2));
     }

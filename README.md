@@ -1,13 +1,14 @@
 # TinySpectrum
 
 <p align="center">
-  <strong>A modern macOS spectrum scanner for tinySA Ultra and Ultra+.</strong><br>
+  <strong>A modern macOS and Windows spectrum scanner for tinySA Ultra and Ultra+.</strong><br>
   Scan, compare, monitor, and export RF activity without sending your measurements to the cloud.
 </p>
 
 <p align="center">
   <a href="https://github.com/iron-LAN/TinySpectrum/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/iron-LAN/TinySpectrum?style=for-the-badge&color=7c3aed"></a>
   <a href="https://github.com/iron-LAN/TinySpectrum/releases/latest"><img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-0ea5e9?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/iron-LAN/TinySpectrum/releases/latest"><img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%2F11-0ea5e9?style=for-the-badge&logo=windows&logoColor=white"></a>
   <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-f97316?style=for-the-badge&logo=swift&logoColor=white">
 </p>
 
@@ -50,7 +51,7 @@ TinySpectrum turns a tinySA Ultra into a focused desktop scanning tool. It conne
 - **Detailed frequency axis** — exact viewport edges and collision-free intermediate MHz labels remain readable down to 25 kHz steps.
 - **Reusable presets** — save frequently scanned frequency ranges for one-click recall.
 - **Wireless Workbench export** — export regular scans as WWB-compatible CSV and continuous sessions as `.sdb3` timeline data with one antenna curve.
-- **Private by design** — scans and presets remain on the Mac; approximate location is used only for optional city-based export filenames.
+- **Private by design** — scans and presets remain on your computer; approximate location on macOS is used only for optional city-based export filenames.
 - **Built-in updates** — Sparkle checks the signed public update feed and can install new TinySpectrum releases from inside the app.
 - **Light and dark appearance** — switch themes without leaving the scanner.
 

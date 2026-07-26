@@ -2,7 +2,7 @@
 
 The Windows application is a native Avalonia companion to the macOS TinySpectrum app. It targets Windows 10/11 x64 and communicates with tinySA Ultra devices through a USB COM port.
 
-## Current beta features
+## Features
 
 - Automatic COM-port discovery, connection, and reconnection
 - Single and continuous spectrum scans
@@ -24,7 +24,7 @@ Install the .NET 10 SDK, then run:
 dotnet run --project Windows/TinySpectrum.Windows/TinySpectrum.Windows.csproj
 ```
 
-The app automatically connects when it finds a tinySA Ultra COM port. Select **Demo** to exercise scanning without hardware.
+The app automatically connects when it finds a tinySA Ultra COM port.
 
 ## Test
 
@@ -35,7 +35,7 @@ dotnet test Windows/TinySpectrum.Windows.slnx -c Release
 ## Package
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Version 0.2.0-beta.8
+powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Version 2.3.1-beta.1
 ```
 
-The self-contained archive is written to `dist/TinySpectrum-0.2.0-beta.8-win-x64.zip`.
+The self-contained archive is written to `dist/TinySpectrum-2.3.1-beta.1-win-x64.zip`.
