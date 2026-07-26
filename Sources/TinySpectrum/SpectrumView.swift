@@ -192,13 +192,14 @@ struct SpectrumView: View {
     private func labels(context: GraphicsContext, plot: CGRect, bounds: (minF: Double, maxF: Double, minL: Double, maxL: Double)) {
         if !visible.isEmpty {
             let range = bounds.minF...bounds.maxF
-            let step = FrequencyAxis.tickStep(for: range)
-            for frequency in FrequencyAxis.ticks(for: range, step: step) {
+            let step = FrequencyAxis.tickStep(for: range, plotWidth: plot.width)
+            for frequency in FrequencyAxis.labelValues(for: range, plotWidth: plot.width, step: step) {
                 let position = (frequency - bounds.minF) / (bounds.maxF - bounds.minF)
+                let anchor: UnitPoint = frequency == range.lowerBound ? .leading : (frequency == range.upperBound ? .trailing : .center)
                 context.draw(
                     Text(FrequencyAxis.label(frequency, step: step)).font(.caption2.monospacedDigit()).foregroundColor(.secondary),
                     at: .init(x: plot.minX + position * plot.width, y: plot.maxY + 17),
-                    anchor: .center
+                    anchor: anchor
                 )
             }
         }
@@ -212,6 +213,8 @@ struct SpectrumView: View {
 }
 
 enum FrequencyAxis {
+    private static let minimumLabelSpacing = 100.0
+
     static func tickStep(for range: ClosedRange<Double>, targetIntervals: Double = 4) -> Double {
         let span = max(1, range.upperBound - range.lowerBound)
         let rawStep = span / max(1, targetIntervals)
@@ -219,6 +222,26 @@ enum FrequencyAxis {
         let normalized = rawStep / magnitude
         let multiplier = [1.0, 2.0, 2.5, 5.0, 10.0].first { $0 >= normalized } ?? 10
         return multiplier * magnitude
+    }
+
+    static func tickStep(for range: ClosedRange<Double>, plotWidth: Double) -> Double {
+        let intervals = max(1, floor(plotWidth / minimumLabelSpacing))
+        return tickStep(for: range, targetIntervals: intervals)
+    }
+
+    static func labelValues(for range: ClosedRange<Double>, plotWidth: Double, step: Double) -> [Double] {
+        let span = range.upperBound - range.lowerBound
+        guard span > 0 else { return [] }
+        var result = [range.lowerBound]
+        for value in ticks(for: range, step: step) where value > range.lowerBound && value < range.upperBound {
+            let fromPrevious = (value - result.last!) / span * plotWidth
+            let fromEnd = (range.upperBound - value) / span * plotWidth
+            if fromPrevious >= minimumLabelSpacing, fromEnd >= minimumLabelSpacing {
+                result.append(value)
+            }
+        }
+        result.append(range.upperBound)
+        return result
     }
 
     static func ticks(for range: ClosedRange<Double>, step: Double) -> [Double] {
@@ -238,7 +261,7 @@ enum FrequencyAxis {
         let divisor = useMHz ? 1_000_000.0 : 1_000.0
         let unit = useMHz ? "MHz" : "kHz"
         let scaledStep = step / divisor
-        let decimals = useMHz && step < 1_000_000 ? 3 : decimalPlaces(for: scaledStep)
+        let decimals = useMHz ? 3 : decimalPlaces(for: scaledStep)
         return String(format: "%.*f %@", decimals, frequency / divisor, unit)
     }
 

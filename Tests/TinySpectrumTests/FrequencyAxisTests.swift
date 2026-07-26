@@ -10,7 +10,7 @@ final class FrequencyAxisTests: XCTestCase {
     }
 
     func testLabelsAddOnlyNeededMHzPrecision() {
-        XCTAssertEqual(FrequencyAxis.label(470_000_000, step: 1_000_000), "470 MHz")
+        XCTAssertEqual(FrequencyAxis.label(470_000_000, step: 1_000_000), "470.000 MHz")
         XCTAssertEqual(FrequencyAxis.label(470_100_000, step: 100_000), "470.100 MHz")
         XCTAssertEqual(FrequencyAxis.label(470_050_000, step: 50_000), "470.050 MHz")
         XCTAssertEqual(FrequencyAxis.label(470_025_000, step: 25_000), "470.025 MHz")
@@ -21,5 +21,27 @@ final class FrequencyAxisTests: XCTestCase {
             FrequencyAxis.ticks(for: 470_012_000...470_112_000, step: 25_000),
             [470_025_000, 470_050_000, 470_075_000, 470_100_000]
         )
+    }
+
+    func testAxisAlwaysIncludesExactScanEdges() {
+        let range = 470_125_000.0...474_875_000.0
+        let step = FrequencyAxis.tickStep(for: range, plotWidth: 600)
+        let values = FrequencyAxis.labelValues(for: range, plotWidth: 600, step: step)
+
+        XCTAssertEqual(values.first, range.lowerBound)
+        XCTAssertEqual(values.last, range.upperBound)
+        XCTAssertGreaterThanOrEqual(values.count, 4)
+    }
+
+    func testAxisLabelsNeverUseLessThanMinimumSpacing() {
+        let range = 100_000_000.0...800_000_000.0
+        let width = 520.0
+        let step = FrequencyAxis.tickStep(for: range, plotWidth: width)
+        let values = FrequencyAxis.labelValues(for: range, plotWidth: width, step: step)
+        let pixelPositions = values.map { ($0 - range.lowerBound) / (range.upperBound - range.lowerBound) * width }
+
+        for pair in zip(pixelPositions, pixelPositions.dropFirst()) {
+            XCTAssertGreaterThanOrEqual(pair.1 - pair.0, 100)
+        }
     }
 }
