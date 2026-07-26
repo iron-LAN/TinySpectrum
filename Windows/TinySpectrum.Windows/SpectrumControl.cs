@@ -320,10 +320,10 @@ public sealed class CountdownControl : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (!Active && Progress is null) return;
-        var center = Bounds.Center;
+        var center = new Point(Bounds.Width / 2, Bounds.Height / 2);
         var radius = Math.Max(4, Math.Min(Bounds.Width, Bounds.Height) / 2 - 4);
         context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.Parse("#39434F")), 3), center, radius, radius);
+        if (!Active && Progress is null) return;
         var progress = Progress;
         var start = progress is null ? _spinnerAngle : -Math.PI / 2;
         var end = progress is null

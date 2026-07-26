@@ -57,7 +57,7 @@
               </Grid>
               <local:CountdownControl Grid.Column="4" Width="42" Height="42"
                                       Progress="{Binding IntervalProgress}" RemainingText="{Binding CountdownText}"
-                                      Active="{Binding IsContinuousScanning}"/>
+                                      Active="{Binding IsScanning}"/>
             </Grid>
           </StackPanel>
         </Border>
