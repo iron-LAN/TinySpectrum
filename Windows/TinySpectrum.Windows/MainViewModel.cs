@@ -15,11 +15,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private bool _timingDrivenByInterval;
     private bool _isScanning;
     private bool _isConnected;
-    private bool _isDemo;
     private bool _peakHoldEnabled;
     private string _status = "Looking for a tinySA Ultra…";
     private string? _selectedPort;
     private string _exportLocation = "UnknownLocation";
+    private string _presetName = "";
     private double _startMhz = 470;
     private double _stopMhz = 700;
     private RbwOption _selectedRbw = RbwOption.All[4];
@@ -34,11 +34,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public IReadOnlyList<RbwOption> RbwOptions => RbwOption.All;
     public IReadOnlyList<IntervalOption> IntervalOptions => IntervalOption.All;
 
-    public AsyncCommand ConnectCommand { get; }
     public AsyncCommand ScanCommand { get; }
     public AsyncCommand ContinuousCommand { get; }
     public RelayCommand StopCommand { get; }
-    public RelayCommand DemoCommand { get; }
+    public RelayCommand SavePresetCommand { get; }
     public RelayCommand ClearCommand { get; }
 
     public MainViewModel()
@@ -47,11 +46,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         foreach (var scan in stored.Scans) { scan.IsVisible = false; Scans.Add(scan); }
         foreach (var preset in stored.Presets.Count > 0 ? stored.Presets : DefaultPresets()) Presets.Add(preset);
 
-        ConnectCommand = new(ConnectAsync, () => !IsScanning && !IsConnected && !IsDemo && SelectedPort is not null && !_connectInFlight);
         ScanCommand = new(() => BeginScanAsync(false), () => CanScan);
         ContinuousCommand = new(() => BeginScanAsync(true), () => CanScan);
         StopCommand = new(Stop, () => IsScanning);
-        DemoCommand = new(EnableDemo, () => !IsScanning && !_connectInFlight);
+        SavePresetCommand = new(SavePreset, () => !string.IsNullOrWhiteSpace(PresetName));
         ClearCommand = new(() => { foreach (var scan in Scans) scan.IsVisible = false; NotifySpectrum(); });
 
         _ = RefreshPortsAsync();
@@ -60,14 +58,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         SynchronizeInterval();
     }
 
-    public string? SelectedPort { get => _selectedPort; set { Set(ref _selectedPort, value); ConnectCommand.Raise(); } }
+    public string? SelectedPort { get => _selectedPort; set => Set(ref _selectedPort, value); }
     public string ExportLocation { get => _exportLocation; set => Set(ref _exportLocation, value); }
     public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); OnPropertyChanged(nameof(ConnectionColor)); } }
-    public string ConnectionText => IsDemo ? "DEMO" : IsConnected ? _serial.PortName ?? "CONNECTED" : "DISCONNECTED";
-    public string ConnectionColor => IsDemo ? "#B56BFF" : IsConnected ? "#32E38A" : "#7890A2";
-    public bool IsDemo { get => _isDemo; private set { Set(ref _isDemo, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); OnPropertyChanged(nameof(ConnectionColor)); } }
+    public string ConnectionText => IsConnected ? _serial.PortName ?? "CONNECTED" : "LOOKING FOR TINYSA";
+    public string ConnectionColor => IsConnected ? "#32E38A" : "#7890A2";
     public bool IsScanning { get => _isScanning; private set { Set(ref _isScanning, value); RaiseCommands(); } }
-    public bool CanScan => (IsConnected || IsDemo) && !IsScanning;
+    public bool CanScan => IsConnected && !IsScanning;
+    public string PresetName { get => _presetName; set { if (Set(ref _presetName, value)) SavePresetCommand.RaiseCanExecuteChanged(); } }
     public string Status { get => _status; private set => Set(ref _status, value); }
     public double StartMhz { get => _startMhz; set { if (Set(ref _startMhz, Math.Max(.1, value))) RangeChanged(); } }
     public double StopMhz { get => _stopMhz; set { if (Set(ref _stopMhz, Math.Max(StartMhz + .001, value))) RangeChanged(); } }
@@ -90,27 +88,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public int TimelineIndex { get => _timelineIndex; set { if (Set(ref _timelineIndex, Math.Max(0, value))) NotifySpectrum(); } }
     public int TimelineMaximum => Math.Max(0, VisibleContinuous?.CaptureCount - 1 ?? 0);
     public SpectrumScan? VisibleContinuous => Scans.FirstOrDefault(x => x.IsContinuous && x.IsVisible);
+    public bool HasVisibleContinuous => VisibleContinuous is not null;
     public int VisibleCount => Scans.Count(x => x.IsVisible);
 
     private async Task ConnectAsync()
     {
-        if (SelectedPort is null || _connectInFlight || IsConnected || IsDemo) return;
+        if (SelectedPort is null || _connectInFlight || IsConnected) return;
         _connectInFlight = true;
-        ConnectCommand.Raise();
         try
         {
             Status = $"Connecting to {SelectedPort}…";
             await _serial.ConnectAsync(SelectedPort);
-            IsDemo = false; IsConnected = true; Status = $"tinySA connected on {SelectedPort}";
+            IsConnected = true; Status = $"tinySA connected on {SelectedPort}";
         }
         catch (Exception exception) { IsConnected = false; Status = exception.Message; }
-        finally { _connectInFlight = false; ConnectCommand.Raise(); }
-    }
-
-    private async void EnableDemo()
-    {
-        await _serial.DisconnectAsync();
-        IsDemo = true; IsConnected = false; Status = "Demo mode — generated RF data";
+        finally { _connectInFlight = false; }
     }
 
     private async Task BeginScanAsync(bool continuous)
@@ -126,9 +118,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 var started = DateTimeOffset.Now;
                 IntervalProgress = null; NextScanRemaining = null;
                 Status = $"Scanning {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}…";
-                var points = IsDemo
-                    ? await DemoScanAsync(StartMhz * 1e6, StopMhz * 1e6, continuous ? 145 : 450, _scanCancellation.Token)
-                    : await _serial.ScanAsync(StartMhz * 1e6, StopMhz * 1e6, SelectedRbw, continuous ? 145 : 450, _scanCancellation.Token);
+                var points = await _serial.ScanAsync(StartMhz * 1e6, StopMhz * 1e6, SelectedRbw, continuous ? 145 : 450, _scanCancellation.Token);
                 var capture = new ScanCapture(DateTimeOffset.Now, points.ToList());
                 if (continuous && session is not null)
                 {
@@ -201,18 +191,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void ApplyPreset(ScanPreset preset) { StartMhz = preset.StartHz / 1e6; StopMhz = preset.StopHz / 1e6; }
 
-    private static async Task<IReadOnlyList<ScanPoint>> DemoScanAsync(double start, double stop, int count, CancellationToken token)
+    private void SavePreset()
     {
-        await Task.Delay(650, token);
-        var phase = DateTimeOffset.Now.ToUnixTimeMilliseconds() / 1800.0;
-        return Enumerable.Range(0, count).Select(i =>
-        {
-            var frequency = start + (stop - start) * i / (count - 1);
-            var noise = -102 + Random.Shared.NextDouble() * 5;
-            var peak1 = 23 * Math.Exp(-Math.Pow((i - count * (.32 + .02 * Math.Sin(phase))) / 5.0, 2));
-            var peak2 = 15 * Math.Exp(-Math.Pow((i - count * .74) / 3.0, 2));
-            return new ScanPoint(frequency, noise + peak1 + peak2);
-        }).ToArray();
+        var name = PresetName.Trim();
+        if (name.Length == 0) return;
+        Presets.Add(new(name, StartMhz * 1e6, StopMhz * 1e6));
+        PresetName = "";
+        Save();
     }
 
     private async Task RefreshPortsAsync()
@@ -229,8 +214,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             Status = "tinySA disconnected — looking for it…";
         }
         if (SelectedPort is null || !Ports.Contains(SelectedPort)) SelectedPort = Ports.FirstOrDefault();
-        if (!IsConnected && !IsDemo && !IsScanning && SelectedPort is not null) await ConnectAsync();
-        else if (!IsConnected && !IsDemo && SelectedPort is null) Status = "Looking for a tinySA Ultra…";
+        if (!IsConnected && !IsScanning && SelectedPort is not null) await ConnectAsync();
+        else if (!IsConnected && SelectedPort is null) Status = "Looking for a tinySA Ultra…";
     }
 
     private void RangeChanged()
@@ -250,11 +235,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     private void NotifySpectrum()
     {
-        OnPropertyChanged(nameof(VisibleContinuous)); OnPropertyChanged(nameof(TimelineMaximum));
+        OnPropertyChanged(nameof(VisibleContinuous)); OnPropertyChanged(nameof(HasVisibleContinuous)); OnPropertyChanged(nameof(TimelineMaximum));
         OnPropertyChanged(nameof(VisibleCount)); OnPropertyChanged("Spectrum");
     }
     private void Save() => _store.Save(Scans, Presets);
-    private void RaiseCommands() { ConnectCommand.Raise(); ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); DemoCommand.RaiseCanExecuteChanged(); }
+    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); }
     private static string DurationText(double duration)
     {
         var seconds = Math.Max(1, (int)Math.Round(duration));

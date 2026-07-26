@@ -11,7 +11,7 @@ on:
       version:
         description: Windows beta version
         required: true
-        default: 0.2.0-beta.1
+        default: 0.2.0-beta.2
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
   windows:
     runs-on: windows-2025
     env:
-      VERSION: ${{ inputs.version || '0.2.0-beta.1' }}
+      VERSION: ${{ inputs.version || '0.2.0-beta.2' }}
     steps:
       - name: Check out source
         uses: actions/checkout@v5

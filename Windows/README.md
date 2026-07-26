@@ -6,7 +6,6 @@ The Windows application is a native Avalonia companion to the macOS TinySpectrum
 
 - Automatic COM-port discovery, connection, and reconnection
 - Single and continuous spectrum scans
-- Demo mode for testing without connected hardware
 - Adaptive RBW and continuous-scan intervals
 - Cumulative Peak Hold and timeline playback
 - Horizontal trackpad/mouse-wheel zoom and drag-to-pan spectrum navigation
@@ -36,7 +35,7 @@ dotnet test Windows/TinySpectrum.Windows.slnx -c Release
 ## Package
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Version 0.2.0-beta.1
+powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Version 0.2.0-beta.2
 ```
 
-The self-contained archive is written to `dist/TinySpectrum-0.2.0-beta.1-win-x64.zip`.
+The self-contained archive is written to `dist/TinySpectrum-0.2.0-beta.2-win-x64.zip`.

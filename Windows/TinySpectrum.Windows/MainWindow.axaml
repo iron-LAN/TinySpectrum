@@ -4,38 +4,16 @@
         x:Class="TinySpectrum.Windows.MainWindow"
         x:DataType="local:MainViewModel"
         Title="TinySpectrum" Width="1440" Height="900" MinWidth="1120" MinHeight="720"
+        Icon="avares://TinySpectrum/Assets/TinySpectrum.ico"
         Background="#071019" RequestedThemeVariant="Dark">
   <Grid RowDefinitions="Auto,*,Auto">
-    <Border Background="#101A24" BorderBrush="#294153" BorderThickness="0,0,0,1" Padding="18,12">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
-        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <Border Width="30" Height="30" CornerRadius="8" Background="#112F3E" BorderBrush="#19D9FF" BorderThickness="1">
-            <TextBlock Text="∿" FontSize="22" FontWeight="Bold" Foreground="#19D9FF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
-          <StackPanel>
-            <TextBlock Text="TinySpectrum" FontSize="19" FontWeight="Bold"/>
-            <TextBlock Text="tinySA Ultra spectrum scanner" FontSize="10" Foreground="#7890A2"/>
-          </StackPanel>
-        </StackPanel>
-        <Border Grid.Column="1" Classes="toolbarField">
-          <Grid ColumnDefinitions="Auto,120" ColumnSpacing="8">
-            <TextBlock Text="AUTO CONNECT" FontSize="10" FontWeight="Bold" Foreground="#7890A2" VerticalAlignment="Center"/>
-            <ComboBox Grid.Column="1" ItemsSource="{Binding Ports}" SelectedItem="{Binding SelectedPort}" MinHeight="30"/>
-          </Grid>
-        </Border>
-        <Button Grid.Column="2" Content="CONNECT" Command="{Binding ConnectCommand}" Classes="secondary"/>
-        <Border Grid.Column="3" Classes="toolbarField">
-          <Grid ColumnDefinitions="Auto,135" ColumnSpacing="8">
-            <TextBlock Text="LOCATION" FontSize="10" FontWeight="Bold" Foreground="#7890A2" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="1" Text="{Binding ExportLocation}" PlaceholderText="City" MinHeight="30"/>
-          </Grid>
-        </Border>
-        <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+    <Border Background="#101A24" BorderBrush="#294153" BorderThickness="0,0,0,1" Padding="18,10">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
           <Ellipse Width="8" Height="8" Fill="{Binding ConnectionColor}"/>
           <TextBlock Text="{Binding ConnectionText}" Foreground="#A9BAC7" FontWeight="Bold"/>
         </StackPanel>
-        <Button Grid.Column="6" Content="DEMO" Command="{Binding DemoCommand}" Classes="secondary"/>
-        <TextBlock Grid.Column="7" Text="WINDOWS BETA" FontSize="10" FontWeight="Bold" Foreground="#B56BFF" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Text="WINDOWS BETA" FontSize="10" FontWeight="Bold" Foreground="#B56BFF" VerticalAlignment="Center"/>
       </Grid>
     </Border>
 
@@ -44,7 +22,8 @@
         <Border Classes="sectionHeader">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Text="SPECTRUM" Classes="sectionTitle"/>
-            <ToggleSwitch Grid.Column="1" Content="Peak Hold" IsChecked="{Binding PeakHoldEnabled}"/>
+            <ToggleButton Grid.Column="1" Content="〰  PEAK HOLD" Classes="peakHold"
+                          IsChecked="{Binding PeakHoldEnabled}" IsEnabled="{Binding HasVisibleContinuous}"/>
           </Grid>
         </Border>
         <Border Grid.Row="1" Background="#07131C" BorderBrush="#254457" BorderThickness="1" CornerRadius="10">
@@ -60,21 +39,23 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Grid ColumnDefinitions="Auto,120,Auto,120,Auto,*,Auto" ColumnSpacing="8">
+            <Grid ColumnDefinitions="Auto,120,Auto,120,Auto,*,150,Auto" ColumnSpacing="8">
               <TextBlock Text="START" Classes="fieldLabel"/>
               <NumericUpDown Grid.Column="1" Value="{Binding StartMhz}" Minimum="0.1" Maximum="5300" Increment="1" FormatString="0.######"/>
               <TextBlock Grid.Column="2" Text="STOP" Classes="fieldLabel"/>
               <NumericUpDown Grid.Column="3" Value="{Binding StopMhz}" Minimum="0.101" Maximum="5300" Increment="1" FormatString="0.######"/>
               <TextBlock Grid.Column="4" Text="MHz" Classes="fieldLabel"/>
-              <TextBlock Grid.Column="6" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" Foreground="#8297A7" FontFamily="Consolas"/>
+              <TextBox Grid.Column="6" Text="{Binding PresetName}" PlaceholderText="Preset name"/>
+              <Button Grid.Column="7" Content="SAVE PRESET" Command="{Binding SavePresetCommand}" Classes="secondary"/>
             </Grid>
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,230,130,Auto" ColumnSpacing="9">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,230,130,Auto,Auto" ColumnSpacing="9">
               <Button Content="SCAN" Command="{Binding ScanCommand}" Classes="primary"/>
               <Button Grid.Column="1" Content="STOP" Command="{Binding StopCommand}" Classes="danger"/>
               <Button Grid.Column="2" Content="CONTINUOUS" Command="{Binding ContinuousCommand}" Classes="purple"/>
               <ComboBox Grid.Column="4" ItemsSource="{Binding RbwOptions}" SelectedItem="{Binding SelectedRbw}"/>
               <ComboBox Grid.Column="5" ItemsSource="{Binding IntervalOptions}" SelectedItem="{Binding SelectedInterval}"/>
-              <local:CountdownControl Grid.Column="6" Width="42" Height="42" DataContext="{Binding}"/>
+              <TextBlock Grid.Column="6" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" Foreground="#8297A7" FontFamily="Consolas"/>
+              <local:CountdownControl Grid.Column="7" Width="42" Height="42" DataContext="{Binding}"/>
             </Grid>
           </StackPanel>
         </Border>
@@ -104,7 +85,7 @@
                     <CheckBox IsChecked="{Binding IsVisible, Mode=OneWay}" Tag="{Binding .}" Click="Visibility_Click" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Spacing="2">
                       <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                      <TextBlock Text="{Binding Rbw}" FontSize="10" Foreground="#8297A7" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding DetailsLabel}" FontSize="10" Foreground="#8297A7" TextWrapping="Wrap"/>
                       <TextBlock Text="{Binding CaptureLabel}" FontSize="10" Foreground="#BE7BFF"/>
                     </StackPanel>
                     <Button Grid.Column="2" Content="WWB" Tag="{Binding .}" Click="Export_Click" Classes="wwb"/>

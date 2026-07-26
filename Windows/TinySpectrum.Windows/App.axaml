@@ -55,6 +55,21 @@
       <Setter Property="Padding" Value="4"/>
       <Setter Property="FontSize" Value="11"/>
     </Style>
+    <Style Selector="ToggleButton.peakHold">
+      <Setter Property="Background" Value="#19232C"/>
+      <Setter Property="Foreground" Value="#A9BAC7"/>
+      <Setter Property="BorderBrush" Value="#3B4C59"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="7"/>
+      <Setter Property="Padding" Value="11,5"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector="ToggleButton.peakHold:checked">
+      <Setter Property="Background" Value="#6B2028"/>
+      <Setter Property="Foreground" Value="#FFCDD2"/>
+      <Setter Property="BorderBrush" Value="#FF5968"/>
+    </Style>
     <Style Selector="ComboBox, NumericUpDown, TextBox">
       <Setter Property="Background" Value="#0B1822"/>
       <Setter Property="BorderBrush" Value="#2C485B"/>
