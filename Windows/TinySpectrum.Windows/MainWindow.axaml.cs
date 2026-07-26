@@ -20,6 +20,11 @@ public partial class MainWindow : Window
         if (sender is Button { Tag: ScanPreset preset }) ViewModel.ApplyPreset(preset);
     }
 
+    private void DeletePreset_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: ScanPreset preset }) ViewModel.DeletePreset(preset);
+    }
+
     private void Visibility_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is CheckBox { Tag: SpectrumScan scan }) ViewModel.ToggleVisibility(scan);

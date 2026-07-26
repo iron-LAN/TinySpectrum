@@ -37,6 +37,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public AsyncCommand ScanCommand { get; }
     public AsyncCommand ContinuousCommand { get; }
     public RelayCommand StopCommand { get; }
+    public RelayCommand SetRangeCommand { get; }
     public RelayCommand SavePresetCommand { get; }
     public RelayCommand ClearCommand { get; }
 
@@ -49,6 +50,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ScanCommand = new(() => BeginScanAsync(false), () => CanScan);
         ContinuousCommand = new(() => BeginScanAsync(true), () => CanScan);
         StopCommand = new(Stop, () => IsScanning);
+        SetRangeCommand = new(SetRange, () => !IsScanning);
         SavePresetCommand = new(SavePreset, () => !string.IsNullOrWhiteSpace(PresetName));
         ClearCommand = new(() => { foreach (var scan in Scans) scan.IsVisible = false; NotifySpectrum(); });
 
@@ -191,6 +193,20 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void ApplyPreset(ScanPreset preset) { StartMhz = preset.StartHz / 1e6; StopMhz = preset.StopHz / 1e6; }
 
+    public void DeletePreset(ScanPreset preset)
+    {
+        Presets.Remove(preset);
+        Save();
+    }
+
+    private void SetRange()
+    {
+        StartMhz = Math.Clamp(StartMhz, .1, 5299.999);
+        StopMhz = Math.Clamp(StopMhz, StartMhz + .001, 5300);
+        RangeChanged();
+        Status = $"Range set to {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}";
+    }
+
     private void SavePreset()
     {
         var name = PresetName.Trim();
@@ -239,7 +255,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(VisibleCount)); OnPropertyChanged("Spectrum");
     }
     private void Save() => _store.Save(Scans, Presets);
-    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); }
+    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); SetRangeCommand.RaiseCanExecuteChanged(); }
     private static string DurationText(double duration)
     {
         var seconds = Math.Max(1, (int)Math.Round(duration));

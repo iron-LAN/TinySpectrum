@@ -5,6 +5,7 @@
   <key>CFBundleIdentifier</key><string>nl.davidrusting.tinyspectrum</string>
   <key>CFBundleName</key><string>TinySpectrum</string>
   <key>CFBundleDisplayName</key><string>TinySpectrum</string>
+  <key>CFBundleIconFile</key><string>TinySpectrum</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>2.3.0</string>
   <key>CFBundleVersion</key><string>19</string>

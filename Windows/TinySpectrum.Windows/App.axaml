@@ -55,6 +55,18 @@
       <Setter Property="Padding" Value="4"/>
       <Setter Property="FontSize" Value="11"/>
     </Style>
+    <Style Selector="Button.chipName">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="11,5"/>
+      <Setter Property="FontSize" Value="11"/>
+    </Style>
+    <Style Selector="Button.presetDelete">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#8195A4"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="7,5,9,5"/>
+    </Style>
     <Style Selector="ToggleButton.peakHold">
       <Setter Property="Background" Value="#19232C"/>
       <Setter Property="Foreground" Value="#A9BAC7"/>

@@ -10,6 +10,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp .build/release/TinySpectrum "$APP/Contents/MacOS/TinySpectrum"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+iconutil -c icns Resources/AppIcon.iconset -o "$APP/Contents/Resources/TinySpectrum.icns"
 SPARKLE_FRAMEWORK=$(find .build/artifacts -type d -name Sparkle.framework -print -quit)
 if [[ -z "$SPARKLE_FRAMEWORK" ]]; then
   echo "Sparkle.framework was not found in SwiftPM build artifacts" >&2
