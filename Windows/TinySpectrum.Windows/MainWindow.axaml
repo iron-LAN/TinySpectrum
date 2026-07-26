@@ -46,7 +46,7 @@
               <TextBox Grid.Column="6" Text="{Binding PresetName}" PlaceholderText="Preset name" HorizontalAlignment="Stretch"/>
               <Button Grid.Column="7" Content="SAVE PRESET" Command="{Binding SavePresetCommand}" Classes="secondary"/>
             </Grid>
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,230,130,Auto,Auto" ColumnSpacing="9">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,170,85,72,42" ColumnSpacing="7">
               <Button Content="SCAN" Command="{Binding ScanCommand}" Classes="primary"/>
               <Button Grid.Column="1" Content="STOP" Command="{Binding StopCommand}" Classes="danger"/>
               <Button Grid.Column="2" Content="CONTINUOUS" Command="{Binding ContinuousCommand}" Classes="purple"/>
@@ -54,7 +54,8 @@
               <ComboBox Grid.Column="5" ItemsSource="{Binding IntervalOptions}" SelectedItem="{Binding SelectedInterval}"/>
               <TextBlock Grid.Column="6" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" Foreground="#8297A7" FontFamily="Consolas"/>
               <local:CountdownControl Grid.Column="7" Width="42" Height="42"
-                                      Progress="{Binding IntervalProgress}" RemainingText="{Binding CountdownText}"/>
+                                      Progress="{Binding IntervalProgress}" RemainingText="{Binding CountdownText}"
+                                      Active="{Binding IsContinuousScanning}"/>
             </Grid>
           </StackPanel>
         </Border>

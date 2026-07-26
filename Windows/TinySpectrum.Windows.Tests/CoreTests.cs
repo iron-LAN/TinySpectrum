@@ -34,9 +34,10 @@ public sealed class CoreTests
     [Fact]
     public void CountdownUsesExplicitBindableState()
     {
-        var countdown = new CountdownControl { Progress = .5, RemainingText = "5s" };
+        var countdown = new CountdownControl { Progress = .5, RemainingText = "5s", Active = true };
         Assert.Equal(.5, countdown.Progress);
         Assert.Equal("5s", countdown.RemainingText);
+        Assert.True(countdown.Active);
     }
 
     [Fact]

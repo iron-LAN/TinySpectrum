@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace TinySpectrum.Windows;
 
@@ -287,37 +288,58 @@ public sealed class SpectrumControl : Control
 
 public sealed class CountdownControl : Control
 {
+    private readonly DispatcherTimer _animationTimer;
+    private double _spinnerAngle;
     public static readonly StyledProperty<double?> ProgressProperty =
         AvaloniaProperty.Register<CountdownControl, double?>(nameof(Progress));
     public static readonly StyledProperty<string> RemainingTextProperty =
         AvaloniaProperty.Register<CountdownControl, string>(nameof(RemainingText), "");
+    public static readonly StyledProperty<bool> ActiveProperty =
+        AvaloniaProperty.Register<CountdownControl, bool>(nameof(Active));
 
     static CountdownControl()
     {
-        AffectsRender<CountdownControl>(ProgressProperty, RemainingTextProperty);
+        AffectsRender<CountdownControl>(ProgressProperty, RemainingTextProperty, ActiveProperty);
     }
 
     public double? Progress { get => GetValue(ProgressProperty); set => SetValue(ProgressProperty, value); }
     public string RemainingText { get => GetValue(RemainingTextProperty); set => SetValue(RemainingTextProperty, value); }
+    public bool Active { get => GetValue(ActiveProperty); set => SetValue(ActiveProperty, value); }
+
+    public CountdownControl()
+    {
+        _animationTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(55), DispatcherPriority.Render, (_, _) =>
+        {
+            if (!Active || Progress is not null) return;
+            _spinnerAngle = (_spinnerAngle + .16) % (Math.PI * 2);
+            InvalidateVisual();
+        });
+        _animationTimer.Start();
+    }
 
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (Progress is not { } progress) return;
+        if (!Active && Progress is null) return;
         var center = Bounds.Center;
         var radius = Math.Max(4, Math.Min(Bounds.Width, Bounds.Height) / 2 - 4);
         context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.Parse("#39434F")), 3), center, radius, radius);
-        var start = -Math.PI / 2;
-        var end = start + Math.PI * 2 * Math.Clamp(progress, 0, .9999);
+        var progress = Progress;
+        var start = progress is null ? _spinnerAngle : -Math.PI / 2;
+        var end = progress is null
+            ? start + Math.PI * .55
+            : start + Math.PI * 2 * Math.Clamp(progress.Value, 0, .9999);
         var geometry = new StreamGeometry();
         using (var drawing = geometry.Open())
         {
             drawing.BeginFigure(new(center.X + radius * Math.Cos(start), center.Y + radius * Math.Sin(start)), false);
             drawing.ArcTo(new(center.X + radius * Math.Cos(end), center.Y + radius * Math.Sin(end)),
-                new(radius, radius), 0, progress > .5, SweepDirection.Clockwise);
+                new(radius, radius), 0, progress is not null && progress > .5, SweepDirection.Clockwise);
         }
         context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse("#A855F7")), 3), geometry);
-        var formatted = new FormattedText(RemainingText, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+        if (progress is null) return;
+        var text = RemainingText;
+        var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             new Typeface("Inter", FontStyle.Normal, FontWeight.Bold), 9, Brushes.White);
         context.DrawText(formatted, new(center.X - formatted.Width / 2, center.Y - formatted.Height / 2));
     }

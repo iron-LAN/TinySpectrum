@@ -16,6 +16,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private bool _batteryPollInFlight;
     private bool _timingDrivenByInterval;
     private bool _isScanning;
+    private bool _isContinuousScanning;
     private bool _isConnected;
     private bool _peakHoldEnabled;
     private string _status = "Looking for TinySA…";
@@ -77,6 +78,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ? $"~{BatteryPercent(millivolts)}%  •  {millivolts / 1000.0:0.00} V"
         : "";
     public bool IsScanning { get => _isScanning; private set { Set(ref _isScanning, value); RaiseCommands(); } }
+    public bool IsContinuousScanning { get => _isContinuousScanning; private set => Set(ref _isContinuousScanning, value); }
     public bool CanScan => IsConnected && !IsScanning;
     public string PresetName { get => _presetName; set { if (Set(ref _presetName, value)) SavePresetCommand.RaiseCanExecuteChanged(); } }
     public string Status { get => _status; private set => Set(ref _status, value); }
@@ -124,6 +126,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private async Task BeginScanAsync(bool continuous)
     {
         if (!CanScan) return;
+        IsContinuousScanning = continuous;
         IsScanning = true;
         _scanCancellation = new();
         SpectrumScan? session = null;
@@ -172,7 +175,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception exception) { Status = exception.Message; }
         finally
         {
-            IntervalProgress = null; NextScanRemaining = null; IsScanning = false;
+            IntervalProgress = null; NextScanRemaining = null; IsContinuousScanning = false; IsScanning = false;
             _scanCancellation.Dispose(); _scanCancellation = null;
         }
     }
