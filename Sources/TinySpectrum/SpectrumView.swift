@@ -191,9 +191,15 @@ struct SpectrumView: View {
 
     private func labels(context: GraphicsContext, plot: CGRect, bounds: (minF: Double, maxF: Double, minL: Double, maxL: Double)) {
         if !visible.isEmpty {
-            for i in 0...4 {
-                let t = Double(i) / 4
-                context.draw(Text(SpectrumScan.short(bounds.minF + (bounds.maxF - bounds.minF) * t)).font(.caption2).foregroundColor(.secondary), at: .init(x: plot.minX + t * plot.width, y: plot.maxY + 17), anchor: .center)
+            let range = bounds.minF...bounds.maxF
+            let step = FrequencyAxis.tickStep(for: range)
+            for frequency in FrequencyAxis.ticks(for: range, step: step) {
+                let position = (frequency - bounds.minF) / (bounds.maxF - bounds.minF)
+                context.draw(
+                    Text(FrequencyAxis.label(frequency, step: step)).font(.caption2.monospacedDigit()).foregroundColor(.secondary),
+                    at: .init(x: plot.minX + position * plot.width, y: plot.maxY + 17),
+                    anchor: .center
+                )
             }
         }
         for i in 0...5 {
@@ -202,6 +208,46 @@ struct SpectrumView: View {
             context.draw(Text(String(format: "%.0f", value)).font(.caption.monospacedDigit()).foregroundColor(.secondary), at: .init(x: plot.minX - 10, y: plot.minY + t * plot.height), anchor: .trailing)
         }
         context.draw(Text("dBm").font(.caption2.bold()).foregroundColor(.secondary), at: .init(x: plot.minX - 30, y: plot.minY - 14), anchor: .center)
+    }
+}
+
+enum FrequencyAxis {
+    static func tickStep(for range: ClosedRange<Double>, targetIntervals: Double = 4) -> Double {
+        let span = max(1, range.upperBound - range.lowerBound)
+        let rawStep = span / max(1, targetIntervals)
+        let magnitude = pow(10, floor(log10(rawStep)))
+        let normalized = rawStep / magnitude
+        let multiplier = [1.0, 2.0, 2.5, 5.0, 10.0].first { $0 >= normalized } ?? 10
+        return multiplier * magnitude
+    }
+
+    static func ticks(for range: ClosedRange<Double>, step: Double) -> [Double] {
+        guard step > 0, range.upperBound > range.lowerBound else { return [] }
+        let epsilon = step * 1e-9
+        var value = ceil((range.lowerBound - epsilon) / step) * step
+        var result: [Double] = []
+        while value <= range.upperBound + epsilon, result.count < 12 {
+            result.append(value)
+            value += step
+        }
+        return result
+    }
+
+    static func label(_ frequency: Double, step: Double) -> String {
+        let useMHz = abs(frequency) >= 1_000_000 || step >= 1_000_000
+        let divisor = useMHz ? 1_000_000.0 : 1_000.0
+        let unit = useMHz ? "MHz" : "kHz"
+        let scaledStep = step / divisor
+        let decimals = useMHz && step < 1_000_000 ? 3 : decimalPlaces(for: scaledStep)
+        return String(format: "%.*f %@", decimals, frequency / divisor, unit)
+    }
+
+    private static func decimalPlaces(for value: Double) -> Int {
+        for decimals in 0...6 {
+            let scale = pow(10, Double(decimals))
+            if abs(value * scale - (value * scale).rounded()) < 1e-7 { return decimals }
+        }
+        return 6
     }
 }
 
