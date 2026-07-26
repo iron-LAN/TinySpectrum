@@ -46,6 +46,8 @@ TinySpectrum turns a tinySA Ultra into a focused desktop scanning tool. It conne
 - **Visible scan countdown** — a circular timer shows when the next continuous capture will begin.
 - **Multiple scan overlays** — compare saved scans using distinct trace colors.
 - **Clear continuous timelines** — only one continuous session is displayed at a time, while regular scans remain available as comparison overlays.
+- **Spectrum zoom and pan** — scroll over the graph to zoom around the pointer, then drag horizontally to inspect another part of the visible scan range.
+- **Detailed frequency axis** — exact viewport edges and collision-free intermediate MHz labels remain readable down to 25 kHz steps.
 - **Reusable presets** — save frequently scanned frequency ranges for one-click recall.
 - **Wireless Workbench export** — export regular scans as WWB-compatible CSV and continuous sessions as `.sdb3` timeline data with one antenna curve.
 - **Private by design** — scans and presets remain on the Mac; approximate location is used only for optional city-based export filenames.
@@ -70,6 +72,12 @@ Enable **Peak Hold** above the spectrum graph during a continuous scan. The curr
 
 Peak Hold is cumulative during live scanning and timeline playback: lower readings never reduce the stored peak, while later higher readings update only the affected frequencies.
 
+## Spectrum navigation
+
+Scroll vertically on the trackpad while the pointer is over the spectrum graph to zoom along the frequency axis. The zoom remains centered around the pointer and never extends beyond the combined range of the visible scans.
+
+While zoomed in, drag left or right inside the graph to inspect another part of the scan. Panning is horizontal only. The frequency axis always shows the exact visible start and end, adds intermediate labels when space permits, and uses a minimum labeled step of 0.025 MHz.
+
 ## Wireless Workbench export
 
 The **WWB** button adapts to the selected scan type:
@@ -79,7 +87,7 @@ The **WWB** button adapts to the selected scan type:
 | Single scan | `.csv` | Frequency in MHz and amplitude in dBm |
 | Continuous scan | `.sdb3` | Shure timeline container with timestamps and one antenna curve |
 
-Continuous exports preserve the captured timeline so it can be played inside Wireless Workbench. Export filenames include the matching preset, resolution, approximate city when available, and timeline label.
+Continuous exports preserve the captured timeline so it can be played inside Wireless Workbench. Export filenames begin with the scan date and approximate city in `DD-MM-YY_LOCATION_` format, leaving the trailing underscore ready for your own description.
 
 ## Install
 
