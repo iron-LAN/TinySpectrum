@@ -6,7 +6,7 @@ enum ExportFilename {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.dateFormat = "dd-MM-yy"
 
         return [formatter.string(from: date), safePart(location ?? "UnknownLocation"), ""]
             .joined(separator: "_")

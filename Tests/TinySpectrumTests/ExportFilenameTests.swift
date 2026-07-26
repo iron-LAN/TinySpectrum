@@ -7,7 +7,7 @@ final class ExportFilenameTests: XCTestCase {
 
         XCTAssertEqual(
             ExportFilename.baseName(date: date, location: "Ziggo Dome, Amsterdam", timeZone: TimeZone(secondsFromGMT: 0)!),
-            "2026-07-26_Ziggo-Dome-Amsterdam_"
+            "26-07-26_Ziggo-Dome-Amsterdam_"
         )
     }
 
@@ -16,7 +16,7 @@ final class ExportFilenameTests: XCTestCase {
 
         XCTAssertEqual(
             ExportFilename.baseName(date: date, location: nil, timeZone: TimeZone(secondsFromGMT: 0)!),
-            "2026-07-26_UnknownLocation_"
+            "26-07-26_UnknownLocation_"
         )
     }
 }
