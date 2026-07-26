@@ -19,6 +19,19 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void ContinuousPointCountGrowsForFinerResolution()
+    {
+        const double span = 230_000_000;
+        var coarse = SweepEstimator.PointCount(span, RbwOption.All[^1], true);
+        var fine = SweepEstimator.PointCount(span, RbwOption.All[4], true);
+
+        Assert.InRange(coarse, 145, 450);
+        Assert.InRange(fine, 145, 450);
+        Assert.True(fine > coarse);
+        Assert.Equal(450, SweepEstimator.PointCount(span, RbwOption.All[0], false));
+    }
+
+    [Fact]
     public void SweepEstimatorCouplesSpanResolutionAndInterval()
     {
         const double span = 700_000_000;

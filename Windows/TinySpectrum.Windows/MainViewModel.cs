@@ -130,10 +130,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             do
             {
-                var started = DateTimeOffset.Now;
                 IntervalProgress = null; NextScanRemaining = null;
                 Status = $"Scanning {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}…";
-                var points = await _serial.ScanAsync(StartMhz * 1e6, StopMhz * 1e6, SelectedRbw, continuous ? 145 : 450, _scanCancellation.Token);
+                var pointCount = SweepEstimator.PointCount((StopMhz - StartMhz) * 1e6, SelectedRbw, continuous);
+                var points = await _serial.ScanAsync(StartMhz * 1e6, StopMhz * 1e6, SelectedRbw, pointCount, _scanCancellation.Token);
                 var capture = new ScanCapture(DateTimeOffset.Now, points.ToList());
                 if (continuous && session is not null)
                 {
@@ -146,7 +146,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                         StartHz = StartMhz * 1e6,
                         StopHz = StopMhz * 1e6,
                         Date = capture.Date,
-                        Rbw = continuous ? $"{SelectedRbw.Label} • every {SelectedInterval.Label} • 145 pts" : SelectedRbw.Label,
+                        Rbw = continuous ? $"{SelectedRbw.Label} • every {SelectedInterval.Label} • {points.Count} pts" : SelectedRbw.Label,
                         Points = points.ToList(),
                         Captures = continuous ? [capture] : null
                     };
@@ -156,7 +156,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 Save(); NotifySpectrum();
                 if (!continuous) break;
 
-                var deadline = started.AddSeconds(SelectedInterval.Seconds);
+                var deadline = DateTimeOffset.Now.AddSeconds(SelectedInterval.Seconds);
                 while (DateTimeOffset.Now < deadline)
                 {
                     _scanCancellation.Token.ThrowIfCancellationRequested();

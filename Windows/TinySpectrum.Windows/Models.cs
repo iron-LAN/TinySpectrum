@@ -109,6 +109,11 @@ public sealed record IntervalOption(string Label, int Seconds)
 
 public static class SweepEstimator
 {
+    public static int PointCount(double spanHz, RbwOption rbw, bool continuous) =>
+        continuous
+            ? Math.Clamp((int)Math.Ceiling(Math.Max(1, spanHz) / Math.Max(1, rbw.BandwidthHz * .8)), 145, 450)
+            : 450;
+
     public static double Duration(double spanHz, RbwOption rbw, int outputPoints = 145)
     {
         var measurementSteps = Math.Max(outputPoints, Math.Ceiling(Math.Max(1, spanHz) / (rbw.BandwidthHz * .8)));
