@@ -54,11 +54,44 @@ public sealed class CoreTests
         for (var i = 0; i < records; i++)
         {
             var record = data.AsSpan(binaryStart + i * recordSize, recordSize);
+            Assert.True(record[..4].SequenceEqual("@Swp"u8));
             Assert.Equal(WwbTimelineExporter.Crc16(record[..^2]), BinaryPrimitives.ReadUInt16BigEndian(record[^2..]));
         }
+        Assert.Equal(1u, BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(binaryStart + 4, 4)));
+        Assert.Equal(0u, BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(binaryStart + 8, 4)));
+        Assert.Equal(-800, BinaryPrimitives.ReadInt16BigEndian(data.AsSpan(binaryStart + 12, 2)));
         var end = LastFind(data, Encoding.UTF8.GetBytes("@End"));
         Assert.Equal(100u, BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(end + 4, 4)));
         Assert.Equal(103u, BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(end + 8, 4)));
+    }
+
+    [Fact]
+    public void FrequencyViewportZoomsAroundPointerAndClampsPanning()
+    {
+        var zoomed = FrequencyViewport.Zoom((100, 200), (100, 200), .25, .5);
+        Assert.Equal((112.5, 162.5), zoomed);
+        Assert.Equal((150d, 200d), FrequencyViewport.Pan(zoomed, (100, 200), -10));
+        Assert.Equal((100d, 200d), FrequencyViewport.Zoom(zoomed, (100, 200), .5, 10));
+    }
+
+    [Fact]
+    public void FrequencyAxisIncludesEdgesWithoutOverlappingAndStopsAt25KHz()
+    {
+        var step = FrequencyAxis.TickStep(470_000_000, 470_040_000, 600);
+        Assert.Equal(25_000, step);
+        var values = FrequencyAxis.LabelValues(100_000_000, 800_000_000, 520, FrequencyAxis.TickStep(100_000_000, 800_000_000, 520));
+        Assert.Equal(100_000_000, values[0]);
+        Assert.Equal(800_000_000, values[^1]);
+        var positions = values.Select(value => (value - values[0]) / (values[^1] - values[0]) * 520).ToArray();
+        Assert.All(positions.Zip(positions.Skip(1)), pair => Assert.True(pair.Second - pair.First >= 100));
+    }
+
+    [Fact]
+    public void ExportNameUsesShortDateLocationAndTrailingUnderscore()
+    {
+        var date = new DateTimeOffset(2026, 7, 26, 18, 30, 0, TimeSpan.FromHours(2));
+        Assert.Equal("26-07-26_Ziggo-Dome-Amsterdam_", ExportFileName.BaseName(date, "Ziggo Dome, Amsterdam"));
+        Assert.Equal("26-07-26_UnknownLocation_", ExportFileName.BaseName(date, null));
     }
 
     private static ScanCapture Capture(DateTimeOffset date, params double[] levels) => new(date,

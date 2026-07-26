@@ -11,13 +11,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly ScanStore _store = new();
     private readonly DispatcherTimer _portTimer;
     private CancellationTokenSource? _scanCancellation;
+    private bool _connectInFlight;
     private bool _timingDrivenByInterval;
     private bool _isScanning;
     private bool _isConnected;
     private bool _isDemo;
     private bool _peakHoldEnabled;
-    private string _status = "Connect a tinySA Ultra or start Demo mode";
+    private string _status = "Looking for a tinySA Ultra…";
     private string? _selectedPort;
+    private string _exportLocation = "UnknownLocation";
     private double _startMhz = 470;
     private double _stopMhz = 700;
     private RbwOption _selectedRbw = RbwOption.All[4];
@@ -45,23 +47,25 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         foreach (var scan in stored.Scans) { scan.IsVisible = false; Scans.Add(scan); }
         foreach (var preset in stored.Presets.Count > 0 ? stored.Presets : DefaultPresets()) Presets.Add(preset);
 
-        ConnectCommand = new(ConnectAsync, () => !IsScanning && SelectedPort is not null);
+        ConnectCommand = new(ConnectAsync, () => !IsScanning && !IsConnected && !IsDemo && SelectedPort is not null && !_connectInFlight);
         ScanCommand = new(() => BeginScanAsync(false), () => CanScan);
         ContinuousCommand = new(() => BeginScanAsync(true), () => CanScan);
         StopCommand = new(Stop, () => IsScanning);
-        DemoCommand = new(EnableDemo, () => !IsScanning);
+        DemoCommand = new(EnableDemo, () => !IsScanning && !_connectInFlight);
         ClearCommand = new(() => { foreach (var scan in Scans) scan.IsVisible = false; NotifySpectrum(); });
 
-        RefreshPorts();
-        _portTimer = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, (_, _) => RefreshPorts());
+        _ = RefreshPortsAsync();
+        _portTimer = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, async (_, _) => await RefreshPortsAsync());
         _portTimer.Start();
         SynchronizeInterval();
     }
 
     public string? SelectedPort { get => _selectedPort; set { Set(ref _selectedPort, value); ConnectCommand.Raise(); } }
-    public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); } }
+    public string ExportLocation { get => _exportLocation; set => Set(ref _exportLocation, value); }
+    public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); OnPropertyChanged(nameof(ConnectionColor)); } }
     public string ConnectionText => IsDemo ? "DEMO" : IsConnected ? _serial.PortName ?? "CONNECTED" : "DISCONNECTED";
-    public bool IsDemo { get => _isDemo; private set { Set(ref _isDemo, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); } }
+    public string ConnectionColor => IsDemo ? "#B56BFF" : IsConnected ? "#32E38A" : "#7890A2";
+    public bool IsDemo { get => _isDemo; private set { Set(ref _isDemo, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); OnPropertyChanged(nameof(ConnectionColor)); } }
     public bool IsScanning { get => _isScanning; private set { Set(ref _isScanning, value); RaiseCommands(); } }
     public bool CanScan => (IsConnected || IsDemo) && !IsScanning;
     public string Status { get => _status; private set => Set(ref _status, value); }
@@ -90,7 +94,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private async Task ConnectAsync()
     {
-        if (SelectedPort is null) return;
+        if (SelectedPort is null || _connectInFlight || IsConnected || IsDemo) return;
+        _connectInFlight = true;
+        ConnectCommand.Raise();
         try
         {
             Status = $"Connecting to {SelectedPort}…";
@@ -98,10 +104,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             IsDemo = false; IsConnected = true; Status = $"tinySA connected on {SelectedPort}";
         }
         catch (Exception exception) { IsConnected = false; Status = exception.Message; }
+        finally { _connectInFlight = false; ConnectCommand.Raise(); }
     }
 
-    private void EnableDemo()
+    private async void EnableDemo()
     {
+        await _serial.DisconnectAsync();
         IsDemo = true; IsConnected = false; Status = "Demo mode — generated RF data";
     }
 
@@ -207,12 +215,22 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }).ToArray();
     }
 
-    private void RefreshPorts()
+    private async Task RefreshPortsAsync()
     {
         var current = TinySaSerial.Ports();
-        if (Ports.SequenceEqual(current)) return;
-        Ports.Clear(); foreach (var port in current) Ports.Add(port);
+        if (!Ports.SequenceEqual(current))
+        {
+            Ports.Clear(); foreach (var port in current) Ports.Add(port);
+        }
+        if (IsConnected && (_serial.PortName is null || !current.Contains(_serial.PortName)))
+        {
+            await _serial.DisconnectAsync();
+            IsConnected = false;
+            Status = "tinySA disconnected — looking for it…";
+        }
         if (SelectedPort is null || !Ports.Contains(SelectedPort)) SelectedPort = Ports.FirstOrDefault();
+        if (!IsConnected && !IsDemo && !IsScanning && SelectedPort is not null) await ConnectAsync();
+        else if (!IsConnected && !IsDemo && SelectedPort is null) Status = "Looking for a tinySA Ultra…";
     }
 
     private void RangeChanged()

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
+using System.Globalization;
 
 namespace TinySpectrum.Windows;
 
@@ -111,4 +112,103 @@ public static class FrequencyText
         >= 1e3 => $"{hz / 1e3:0.###} kHz",
         _ => $"{hz:0} Hz"
     };
+}
+
+public static class FrequencyViewport
+{
+    public static (double Start, double Stop) Zoom(
+        (double Start, double Stop) current,
+        (double Start, double Stop) full,
+        double anchor,
+        double scale)
+    {
+        var fullSpan = full.Stop - full.Start;
+        if (fullSpan <= 0) return full;
+        current = Clamp(current, full);
+        var currentSpan = current.Stop - current.Start;
+        var newSpan = Math.Clamp(currentSpan * scale, Math.Max(1, fullSpan / 1000), fullSpan);
+        if (newSpan >= fullSpan) return full;
+        var position = Math.Clamp(anchor, 0, 1);
+        var anchorFrequency = current.Start + currentSpan * position;
+        var start = Math.Clamp(anchorFrequency - newSpan * position, full.Start, full.Stop - newSpan);
+        return (start, start + newSpan);
+    }
+
+    public static (double Start, double Stop) Pan(
+        (double Start, double Stop) current,
+        (double Start, double Stop) full,
+        double translationFraction)
+    {
+        current = Clamp(current, full);
+        var span = current.Stop - current.Start;
+        if (span >= full.Stop - full.Start) return full;
+        var start = Math.Clamp(current.Start - translationFraction * span, full.Start, full.Stop - span);
+        return (start, start + span);
+    }
+
+    public static (double Start, double Stop) Clamp(
+        (double Start, double Stop) range,
+        (double Start, double Stop) full)
+    {
+        var fullSpan = full.Stop - full.Start;
+        var span = Math.Clamp(range.Stop - range.Start, 0, fullSpan);
+        if (span >= fullSpan) return full;
+        var start = Math.Clamp(range.Start, full.Start, full.Stop - span);
+        return (start, start + span);
+    }
+}
+
+public static class FrequencyAxis
+{
+    public const double MinimumTickStep = 25_000;
+    public const double MinimumLabelSpacing = 100;
+
+    public static double TickStep(double start, double stop, double plotWidth)
+    {
+        var span = Math.Max(1, stop - start);
+        var intervals = Math.Max(1, Math.Floor(plotWidth / MinimumLabelSpacing));
+        var rawStep = span / intervals;
+        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(rawStep)));
+        var normalized = rawStep / magnitude;
+        var multiplier = new[] { 1d, 2d, 2.5, 5d, 10d }.First(value => value >= normalized);
+        return Math.Max(MinimumTickStep, multiplier * magnitude);
+    }
+
+    public static IReadOnlyList<double> LabelValues(double start, double stop, double plotWidth, double step)
+    {
+        var span = stop - start;
+        if (span <= 0) return [];
+        var result = new List<double> { start };
+        var epsilon = step * 1e-9;
+        for (var value = Math.Ceiling((start - epsilon) / step) * step; value <= stop + epsilon; value += step)
+        {
+            if (value <= start || value >= stop) continue;
+            var fromPrevious = (value - result[^1]) / span * plotWidth;
+            var fromEnd = (stop - value) / span * plotWidth;
+            if (fromPrevious >= MinimumLabelSpacing && fromEnd >= MinimumLabelSpacing) result.Add(value);
+        }
+        result.Add(stop);
+        return result;
+    }
+
+    public static string Label(double frequency) =>
+        frequency >= 1e6
+            ? string.Create(CultureInfo.InvariantCulture, $"{frequency / 1e6:F3} MHz")
+            : string.Create(CultureInfo.InvariantCulture, $"{frequency / 1e3:F3} kHz");
+}
+
+public static class ExportFileName
+{
+    public static string BaseName(DateTimeOffset date, string? location)
+    {
+        var safeLocation = SafePart(string.IsNullOrWhiteSpace(location) ? "UnknownLocation" : location);
+        return $"{date.LocalDateTime:dd-MM-yy}_{safeLocation}_";
+    }
+
+    private static string SafePart(string value)
+    {
+        var words = value.Split(value.Where(character => !char.IsLetterOrDigit(character) && character != '-').Distinct().ToArray(),
+            StringSplitOptions.RemoveEmptyEntries);
+        return words.Length == 0 ? "Unknown" : string.Join("-", words);
+    }
 }

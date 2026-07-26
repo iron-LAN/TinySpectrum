@@ -1,10 +1,95 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="TinySpectrum.Windows.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
-
-    <Application.Styles>
-        <FluentTheme />
-    </Application.Styles>
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme/>
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="Inter"/>
+      <Setter Property="Foreground" Value="#E8F2F8"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="7"/>
+      <Setter Property="Padding" Value="13,7"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#10BFE8"/>
+      <Setter Property="Foreground" Value="#041117"/>
+    </Style>
+    <Style Selector="Button.purple">
+      <Setter Property="Background" Value="#8B3FD1"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="#3A2028"/>
+      <Setter Property="Foreground" Value="#FF8092"/>
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="#172A37"/>
+      <Setter Property="BorderBrush" Value="#345165"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Button.chip">
+      <Setter Property="Background" Value="#142633"/>
+      <Setter Property="BorderBrush" Value="#2D4A5D"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="11,5"/>
+      <Setter Property="FontSize" Value="11"/>
+    </Style>
+    <Style Selector="Button.wwb">
+      <Setter Property="Background" Value="#10BFE8"/>
+      <Setter Property="Foreground" Value="#041117"/>
+      <Setter Property="Padding" Value="8,7"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="CornerRadius" Value="16"/>
+    </Style>
+    <Style Selector="Button.icon">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#8195A4"/>
+      <Setter Property="Padding" Value="7"/>
+    </Style>
+    <Style Selector="Button.link">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#8DA4B4"/>
+      <Setter Property="Padding" Value="4"/>
+      <Setter Property="FontSize" Value="11"/>
+    </Style>
+    <Style Selector="ComboBox, NumericUpDown, TextBox">
+      <Setter Property="Background" Value="#0B1822"/>
+      <Setter Property="BorderBrush" Value="#2C485B"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="MinHeight" Value="34"/>
+    </Style>
+    <Style Selector="Border.sectionHeader">
+      <Setter Property="Padding" Value="4,2,4,9"/>
+    </Style>
+    <Style Selector="Border.controlCard">
+      <Setter Property="Background" Value="#101A24"/>
+      <Setter Property="BorderBrush" Value="#294153"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="13"/>
+    </Style>
+    <Style Selector="Border.toolbarField">
+      <Setter Property="Background" Value="#0B1720"/>
+      <Setter Property="BorderBrush" Value="#294153"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="10,4"/>
+    </Style>
+    <Style Selector="TextBlock.sectionTitle">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#8297A7"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.fieldLabel">
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#8297A7"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+  </Application.Styles>
 </Application>

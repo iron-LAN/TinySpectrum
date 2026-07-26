@@ -17,11 +17,11 @@ public static class WwbTimelineExporter
         await writer.FlushAsync();
     }
 
-    public static async Task WriteAsync(SpectrumScan scan, Stream output)
+    public static async Task WriteAsync(SpectrumScan scan, Stream output, string? exportTitle = null)
     {
         if (scan.Captures is not { Count: > 0 } captures) throw new InvalidOperationException("Only continuous scans have a WWB timeline.");
         var grid = MakeGrid(captures[0].Points);
-        var title = $"TinySpectrum {scan.Date:yyyy-MM-dd HH-mm}";
+        var title = string.IsNullOrWhiteSpace(exportTitle) ? $"TinySpectrum {scan.Date:yyyy-MM-dd HH-mm}" : exportTitle;
         var curve = new Dictionary<string, object>
         {
             ["Color"] = "#ffff00",
@@ -82,7 +82,7 @@ public static class WwbTimelineExporter
         var extended = new Dictionary<string, object>
         {
             ["Band"] = "Wideband",
-            ["Creator"] = "TinySpectrum Windows 0.1.0-beta.1",
+            ["Creator"] = "TinySpectrum Windows",
             ["ScanName"] = new[] { title },
             ["UserCurveColors"] = new[] { "#ffff00" }
         };
@@ -136,7 +136,7 @@ public static class WwbTimelineExporter
     private static byte[] Record(uint id, uint timestamp, IReadOnlyList<short> samples)
     {
         var data = new byte[12 + samples.Count * 2 + 2];
-        BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(0, 4), 0xFFFFFFFF);
+        "@Swp"u8.CopyTo(data);
         BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(4, 4), id);
         BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(8, 4), timestamp);
         for (var i = 0; i < samples.Count; i++) BinaryPrimitives.WriteInt16BigEndian(data.AsSpan(12 + i * 2, 2), samples[i]);

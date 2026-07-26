@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 
 namespace TinySpectrum.Windows;
@@ -9,8 +10,16 @@ namespace TinySpectrum.Windows;
 public sealed class SpectrumControl : Control
 {
     private MainViewModel? _viewModel;
+    private (double Start, double Stop)? _frequencyWindow;
+    private (double Start, double Stop)? _dragStartWindow;
+    private Point _dragStart;
+    private HoverSample? _hover;
+
     private static readonly Color[] TraceColors =
-    [Color.Parse("#18D8FF"), Color.Parse("#FF8B22"), Color.Parse("#A855F7"), Color.Parse("#34D399"), Color.Parse("#F43F8A")];
+    [
+        Color.Parse("#19D9FF"), Color.Parse("#FF8C24"), Color.Parse("#B05CFF"),
+        Color.Parse("#32E38A"), Color.Parse("#FF4D9D"), Color.Parse("#F5D62E")
+    ];
 
     public SpectrumControl()
     {
@@ -23,82 +32,242 @@ public sealed class SpectrumControl : Control
         if (_viewModel is not null) _viewModel.PropertyChanged -= ViewModelChanged;
         _viewModel = DataContext as MainViewModel;
         if (_viewModel is not null) _viewModel.PropertyChanged += ViewModelChanged;
+        _frequencyWindow = null;
         InvalidateVisual();
     }
 
-    private void ViewModelChanged(object? sender, PropertyChangedEventArgs e) => InvalidateVisual();
+    private void ViewModelChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(MainViewModel.VisibleCount)) _frequencyWindow = null;
+        InvalidateVisual();
+    }
 
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        var bounds = Bounds;
-        context.DrawRectangle(Brushes.Transparent, null, bounds);
-        var plot = new Rect(58, 22, Math.Max(1, bounds.Width - 78), Math.Max(1, bounds.Height - 62));
-        var grid = new Pen(new SolidColorBrush(Color.Parse("#263542")), 1);
-        for (var i = 0; i <= 10; i++)
-        {
-            var x = plot.X + plot.Width * i / 10;
-            context.DrawLine(grid, new Point(x, plot.Y), new Point(x, plot.Bottom));
-        }
-        for (var i = 0; i <= 5; i++)
-        {
-            var y = plot.Y + plot.Height * i / 5;
-            context.DrawLine(grid, new Point(plot.X, y), new Point(plot.Right, y));
-            DrawText(context, $"{-20 - i * 20}", new Point(8, y - 8), 11, "#8494A3");
-        }
+        var plot = PlotRect;
+        context.DrawRectangle(new SolidColorBrush(Color.Parse("#07131C")), new Pen(new SolidColorBrush(Color.Parse("#224054")), 1), plot);
 
-        var visible = _viewModel?.Scans.Where(x => x.IsVisible).ToArray() ?? [];
-        var points = visible.SelectMany(scan => scan.PointsAt(scan.IsContinuous ? _viewModel!.TimelineIndex : null)).ToArray();
-        if (points.Length == 0)
+        var visible = VisibleScans;
+        var full = FullRange(visible);
+        var range = full is { } fullValue
+            ? FrequencyViewport.Clamp(_frequencyWindow ?? fullValue, fullValue)
+            : (0d, 1d);
+        if (full is not null) _frequencyWindow = range;
+
+        DrawGrid(context, plot);
+        DrawAxis(context, plot, range, full is not null);
+
+        if (visible.Length == 0)
         {
-            DrawText(context, "Connect a tinySA or start Demo mode", new Point(plot.Center.X - 135, plot.Center.Y - 10), 15, "#718292");
+            DrawTextCentered(context, "Select a scan or start a new one", plot.Center, 15, "#718292");
             return;
         }
-        var minFrequency = points.Min(x => x.Frequency);
-        var maxFrequency = points.Max(x => x.Frequency);
-        if (maxFrequency <= minFrequency) maxFrequency = minFrequency + 1;
 
-        for (var scanIndex = 0; scanIndex < visible.Length; scanIndex++)
+        using (context.PushClip(plot))
         {
-            var scan = visible[scanIndex];
-            DrawTrace(context, scan.PointsAt(scan.IsContinuous ? _viewModel!.TimelineIndex : null), plot, minFrequency, maxFrequency,
-                new Pen(new SolidColorBrush(TraceColors[scanIndex % TraceColors.Length]), 1.7));
-            if (_viewModel!.PeakHoldEnabled && scan.IsContinuous)
-                DrawTrace(context, scan.PeakHoldAt(_viewModel.TimelineIndex), plot, minFrequency, maxFrequency, new Pen(Brushes.Red, 1.25));
+            for (var scanIndex = 0; scanIndex < visible.Length; scanIndex++)
+            {
+                var scan = visible[scanIndex];
+                DrawTrace(context, scan.PointsAt(scan.IsContinuous ? _viewModel!.TimelineIndex : null), plot, range,
+                    new Pen(new SolidColorBrush(TraceColors[scanIndex % TraceColors.Length]), 1.8));
+                if (_viewModel!.PeakHoldEnabled && scan.IsContinuous)
+                    DrawTrace(context, scan.PeakHoldAt(_viewModel.TimelineIndex), plot, range, new Pen(Brushes.Red, 1.2));
+            }
+
+            if (_hover is { } hover)
+            {
+                context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#55FFFFFF")), 1, dashStyle: new DashStyle([3, 3], 0)),
+                    new Point(hover.Location.X, plot.Top), new Point(hover.Location.X, plot.Bottom));
+                context.DrawEllipse(new SolidColorBrush(hover.Color), null, hover.Location, 4, 4);
+            }
         }
-        DrawText(context, FrequencyText.Short(minFrequency), new Point(plot.X, plot.Bottom + 9), 11, "#8494A3");
-        var endLabel = FrequencyText.Short(maxFrequency);
-        DrawText(context, endLabel, new Point(plot.Right - 70, plot.Bottom + 9), 11, "#8494A3");
-        DrawText(context, "dBm", new Point(8, 2), 11, "#8494A3");
+
+        DrawHoverReadout(context, plot);
+        DrawText(context, "Scroll to zoom  •  drag to pan", new Point(plot.Right - 178, plot.Top + 8), 10, "#617789");
     }
 
-    private static void DrawTrace(DrawingContext context, IReadOnlyList<ScanPoint> points, Rect plot, double minFrequency, double maxFrequency, Pen pen)
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+        var position = e.GetPosition(this);
+        var plot = PlotRect;
+        var full = FullRange(VisibleScans);
+        if (!plot.Contains(position) || full is null || e.Delta.Y == 0) return;
+        var anchor = Math.Clamp((position.X - plot.X) / plot.Width, 0, 1);
+        var scale = Math.Exp(-e.Delta.Y * .18);
+        _frequencyWindow = FrequencyViewport.Zoom(_frequencyWindow ?? full.Value, full.Value, anchor, scale);
+        _hover = null;
+        e.Handled = true;
+        InvalidateVisual();
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        var point = e.GetCurrentPoint(this);
+        var full = FullRange(VisibleScans);
+        if (!point.Properties.IsLeftButtonPressed || !PlotRect.Contains(point.Position) || full is null) return;
+        var current = FrequencyViewport.Clamp(_frequencyWindow ?? full.Value, full.Value);
+        if (current == full.Value) return;
+        _dragStart = point.Position;
+        _dragStartWindow = current;
+        e.Pointer.Capture(this);
+        e.Handled = true;
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        var position = e.GetPosition(this);
+        var full = FullRange(VisibleScans);
+        if (_dragStartWindow is { } start && full is { } fullValue)
+        {
+            _frequencyWindow = FrequencyViewport.Pan(start, fullValue, (position.X - _dragStart.X) / PlotRect.Width);
+            _hover = null;
+            e.Handled = true;
+        }
+        else
+        {
+            _hover = NearestSample(position);
+        }
+        InvalidateVisual();
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        if (_dragStartWindow is null) return;
+        _dragStartWindow = null;
+        e.Pointer.Capture(null);
+        e.Handled = true;
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        if (_dragStartWindow is null) _hover = null;
+        InvalidateVisual();
+    }
+
+    private Rect PlotRect => new(68, 42, Math.Max(1, Bounds.Width - 88), Math.Max(1, Bounds.Height - 84));
+    private SpectrumScan[] VisibleScans => _viewModel?.Scans.Where(scan => scan.IsVisible).ToArray() ?? [];
+
+    private (double Start, double Stop)? FullRange(IReadOnlyList<SpectrumScan> visible)
+    {
+        var points = visible.SelectMany(scan => scan.PointsAt(scan.IsContinuous ? _viewModel!.TimelineIndex : null)).ToArray();
+        if (points.Length == 0) return null;
+        var start = points.Min(point => point.Frequency);
+        var stop = points.Max(point => point.Frequency);
+        return stop > start ? (start, stop) : (start, start + 1);
+    }
+
+    private HoverSample? NearestSample(Point cursor)
+    {
+        var plot = PlotRect;
+        var visible = VisibleScans;
+        var full = FullRange(visible);
+        if (!plot.Contains(cursor) || full is null) return null;
+        var range = FrequencyViewport.Clamp(_frequencyWindow ?? full.Value, full.Value);
+        HoverSample? nearest = null;
+        var bestDistance = double.MaxValue;
+        for (var scanIndex = 0; scanIndex < visible.Length; scanIndex++)
+        {
+            foreach (var point in visible[scanIndex].PointsAt(visible[scanIndex].IsContinuous ? _viewModel!.TimelineIndex : null)
+                         .Where(point => point.Frequency >= range.Start && point.Frequency <= range.Stop))
+            {
+                var location = Map(point, plot, range);
+                var distance = Math.Sqrt(Math.Pow(location.X - cursor.X, 2) + Math.Pow(location.Y - cursor.Y, 2));
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                nearest = new(point, TraceColors[scanIndex % TraceColors.Length], location);
+            }
+        }
+        return nearest;
+    }
+
+    private static void DrawTrace(DrawingContext context, IReadOnlyList<ScanPoint> points, Rect plot,
+        (double Start, double Stop) range, Pen pen)
     {
         if (points.Count < 2) return;
         var geometry = new StreamGeometry();
         using (var drawing = geometry.Open())
         {
-            var first = Map(points[0]);
-            drawing.BeginFigure(first, false);
-            for (var i = 1; i < points.Count; i++) drawing.LineTo(Map(points[i]));
+            drawing.BeginFigure(Map(points[0], plot, range), false);
+            for (var index = 1; index < points.Count; index++) drawing.LineTo(Map(points[index], plot, range));
         }
         context.DrawGeometry(null, pen, geometry);
-        return;
+    }
 
-        Point Map(ScanPoint point)
+    private static Point Map(ScanPoint point, Rect plot, (double Start, double Stop) range)
+    {
+        var x = plot.X + (point.Frequency - range.Start) / (range.Stop - range.Start) * plot.Width;
+        var y = plot.Y + Math.Clamp((-20 - point.Level) / 100, 0, 1) * plot.Height;
+        return new(x, y);
+    }
+
+    private static void DrawGrid(DrawingContext context, Rect plot)
+    {
+        var pen = new Pen(new SolidColorBrush(Color.Parse("#213643")), 1);
+        for (var index = 0; index <= 10; index++)
         {
-            var x = plot.X + (point.Frequency - minFrequency) / (maxFrequency - minFrequency) * plot.Width;
-            var y = plot.Y + Math.Clamp((-20 - point.Level) / 100, 0, 1) * plot.Height;
-            return new Point(x, y);
+            var x = plot.X + plot.Width * index / 10;
+            context.DrawLine(pen, new(x, plot.Y), new(x, plot.Bottom));
+        }
+        for (var index = 0; index <= 5; index++)
+        {
+            var y = plot.Y + plot.Height * index / 5;
+            context.DrawLine(pen, new(plot.X, y), new(plot.Right, y));
+            DrawText(context, $"{-20 - index * 20}", new(12, y - 8), 11, "#8497A6");
+        }
+        DrawText(context, "dBm", new(12, plot.Top - 22), 11, "#8497A6");
+    }
+
+    private static void DrawAxis(DrawingContext context, Rect plot, (double Start, double Stop) range, bool hasData)
+    {
+        if (!hasData) return;
+        var step = FrequencyAxis.TickStep(range.Start, range.Stop, plot.Width);
+        var values = FrequencyAxis.LabelValues(range.Start, range.Stop, plot.Width, step);
+        for (var index = 0; index < values.Count; index++)
+        {
+            var value = values[index];
+            var x = plot.X + (value - range.Start) / (range.Stop - range.Start) * plot.Width;
+            var text = FrequencyAxis.Label(value);
+            var alignment = index == 0 ? TextAlignment.Left : index == values.Count - 1 ? TextAlignment.Right : TextAlignment.Center;
+            DrawTextAligned(context, text, new(x, plot.Bottom + 12), 11, "#8497A6", alignment);
         }
     }
 
-    private static void DrawText(DrawingContext context, string text, Point point, double size, string color)
+    private void DrawHoverReadout(DrawingContext context, Rect plot)
     {
-        var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            new Typeface("Inter"), size, new SolidColorBrush(Color.Parse(color)));
-        context.DrawText(formatted, point);
+        if (_hover is not { } hover) return;
+        var readout = new Rect(plot.Center.X - 142, plot.Top + 5, 284, 30);
+        context.DrawRectangle(new SolidColorBrush(Color.Parse("#DD17232D")), new Pen(new SolidColorBrush(hover.Color), 1), readout);
+        var text = string.Create(CultureInfo.InvariantCulture, $"{hover.Point.Frequency / 1e6:F3} MHz        {hover.Point.Level:F2} dBm");
+        DrawTextCentered(context, text, readout.Center, 12, "#F4FAFF");
     }
+
+    private static void DrawText(DrawingContext context, string text, Point point, double size, string color) =>
+        context.DrawText(Format(text, size, color), point);
+
+    private static void DrawTextCentered(DrawingContext context, string text, Point center, double size, string color)
+    {
+        var formatted = Format(text, size, color);
+        context.DrawText(formatted, new(center.X - formatted.Width / 2, center.Y - formatted.Height / 2));
+    }
+
+    private static void DrawTextAligned(DrawingContext context, string text, Point point, double size, string color, TextAlignment alignment)
+    {
+        var formatted = Format(text, size, color);
+        var x = alignment switch { TextAlignment.Right => point.X - formatted.Width, TextAlignment.Center => point.X - formatted.Width / 2, _ => point.X };
+        context.DrawText(formatted, new(x, point.Y));
+    }
+
+    private static FormattedText Format(string text, double size, string color) =>
+        new(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Inter"), size,
+            new SolidColorBrush(Color.Parse(color)));
+
+    private sealed record HoverSample(ScanPoint Point, Color Color, Point Location);
 }
 
 public sealed class CountdownControl : Control
@@ -126,14 +295,13 @@ public sealed class CountdownControl : Control
         var geometry = new StreamGeometry();
         using (var drawing = geometry.Open())
         {
-            drawing.BeginFigure(new Point(center.X + radius * Math.Cos(start), center.Y + radius * Math.Sin(start)), false);
-            drawing.ArcTo(new Point(center.X + radius * Math.Cos(end), center.Y + radius * Math.Sin(end)),
-                new Size(radius, radius), 0, progress > .5, SweepDirection.Clockwise);
+            drawing.BeginFigure(new(center.X + radius * Math.Cos(start), center.Y + radius * Math.Sin(start)), false);
+            drawing.ArcTo(new(center.X + radius * Math.Cos(end), center.Y + radius * Math.Sin(end)),
+                new(radius, radius), 0, progress > .5, SweepDirection.Clockwise);
         }
         context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse("#A855F7")), 3), geometry);
-        var text = _viewModel.CountdownText;
-        var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+        var formatted = new FormattedText(_viewModel.CountdownText, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             new Typeface("Inter", FontStyle.Normal, FontWeight.Bold), 9, Brushes.White);
-        context.DrawText(formatted, new Point(center.X - formatted.Width / 2, center.Y - formatted.Height / 2));
+        context.DrawText(formatted, new(center.X - formatted.Width / 2, center.Y - formatted.Height / 2));
     }
 }
