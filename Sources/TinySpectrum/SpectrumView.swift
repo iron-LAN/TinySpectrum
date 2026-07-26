@@ -241,8 +241,6 @@ private final class ScrollWheelView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    deinit { removeMonitor() }
-
     private func removeMonitor() {
         if let eventMonitor {
             NSEvent.removeMonitor(eventMonitor)
