@@ -138,6 +138,9 @@ struct ContentView: View {
                 Button("STOP") { model.stop() }.buttonStyle(.bordered).tint(.red).disabled(!model.isScanning)
                 Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
                 Spacer()
+            }
+            .controlSize(.large)
+            HStack(spacing: 10) {
                 Picker("Resolution", selection: Binding(get: { model.rbw }, set: { model.selectRBW($0) })) {
                     ForEach(RBW.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -157,7 +160,9 @@ struct ContentView: View {
                 } else if model.isScanning {
                     ProgressView().controlSize(.small)
                 }
-            }.controlSize(.large)
+                Spacer(minLength: 0)
+            }
+            .controlSize(.large)
         }
     }
 
