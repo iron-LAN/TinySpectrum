@@ -261,10 +261,7 @@ struct ContentView: View {
         }
         let points = scan.points(atCaptureIndex: model.timelineCaptureIndex)
         let csv = points.map { String(format: "%.6f,%.2f", $0.frequency / 1e6, $0.level) }.joined(separator: "\n") + "\n"
-        let preset = model.presets.first { abs($0.startHz - scan.startHz) < 1 && abs($0.stopHz - scan.stopHz) < 1 }?.name ?? "Custom"
-        let city = model.currentCity ?? "UnknownLocation"
-        let resolution = scan.rbw.components(separatedBy: "(").first?.components(separatedBy: "•").first?.trimmingCharacters(in: .whitespaces) ?? scan.rbw
-        let filename = [preset, resolution, city].map(safeFilenamePart).joined(separator: "_") + ".csv"
+        let filename = ExportFilename.baseName(date: scan.date, location: model.currentCity) + ".csv"
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.commaSeparatedText]
         panel.canCreateDirectories = true
@@ -281,10 +278,7 @@ struct ContentView: View {
     }
 
     private func exportTimelineToWWB(_ scan: SpectrumScan) {
-        let preset = model.presets.first { abs($0.startHz - scan.startHz) < 1 && abs($0.stopHz - scan.stopHz) < 1 }?.name ?? "Custom"
-        let city = model.currentCity ?? "UnknownLocation"
-        let resolution = scan.rbw.components(separatedBy: "(").first?.components(separatedBy: "â€¢").first?.trimmingCharacters(in: .whitespaces) ?? scan.rbw
-        let baseName = [preset, resolution, city, "Timeline"].map(safeFilenamePart).joined(separator: "_")
+        let baseName = ExportFilename.baseName(date: scan.date, location: model.currentCity)
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "sdb3") ?? .data]
         panel.canCreateDirectories = true
@@ -301,11 +295,6 @@ struct ContentView: View {
         }
     }
 
-    private func safeFilenamePart(_ value: String) -> String {
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-"))
-        let words = value.components(separatedBy: allowed.inverted).filter { !$0.isEmpty }
-        return words.isEmpty ? "Unknown" : words.joined(separator: "-")
-    }
 }
 
 struct VerticalTimelineSlider: View {
