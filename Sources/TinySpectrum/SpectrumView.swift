@@ -16,6 +16,7 @@ struct SpectrumView: View {
     let peakHoldEnabled: Bool
     @State private var hover: HoverSample?
     @State private var frequencyWindow: ClosedRange<Double>?
+    @State private var dragStartWindow: ClosedRange<Double>?
 
     var visible: [(Int, SpectrumScan)] { scans.enumerated().filter { selected.contains($0.element.id) } }
     private var allPoints: [ScanPoint] {
@@ -33,27 +34,31 @@ struct SpectrumView: View {
                 context.fill(Path(roundedRect: plot, cornerRadius: 8), with: .color(plotBackground))
                 drawGrid(context: context, plot: plot)
                 labels(context: context, plot: plot, bounds: bounds)
-                guard !visible.isEmpty else { return }
-                for (index, scan) in visible {
-                    var path = Path()
-                    for (i, point) in scan.points(atCaptureIndex: timelineCaptureIndex).enumerated() {
-                        let location = screenLocation(point, plot: plot, bounds: bounds)
-                        if i == 0 { path.move(to: location) } else { path.addLine(to: location) }
-                    }
-                    context.stroke(path, with: .color(Palette.color(index, scheme: colorScheme)), lineWidth: 1.8)
-                    if peakHoldEnabled, scan.isContinuous {
-                        var peakPath = Path()
-                        for (i, point) in scan.peakHoldPoints(atCaptureIndex: timelineCaptureIndex).enumerated() {
-                            let location = screenLocation(point, plot: plot, bounds: bounds)
-                            if i == 0 { peakPath.move(to: location) } else { peakPath.addLine(to: location) }
+                if !visible.isEmpty {
+                    context.drawLayer { layer in
+                        layer.clip(to: Path(roundedRect: plot, cornerRadius: 8))
+                        for (index, scan) in visible {
+                            var path = Path()
+                            for (i, point) in scan.points(atCaptureIndex: timelineCaptureIndex).enumerated() {
+                                let location = screenLocation(point, plot: plot, bounds: bounds)
+                                if i == 0 { path.move(to: location) } else { path.addLine(to: location) }
+                            }
+                            layer.stroke(path, with: .color(Palette.color(index, scheme: colorScheme)), lineWidth: 1.8)
+                            if peakHoldEnabled, scan.isContinuous {
+                                var peakPath = Path()
+                                for (i, point) in scan.peakHoldPoints(atCaptureIndex: timelineCaptureIndex).enumerated() {
+                                    let location = screenLocation(point, plot: plot, bounds: bounds)
+                                    if i == 0 { peakPath.move(to: location) } else { peakPath.addLine(to: location) }
+                                }
+                                layer.stroke(peakPath, with: .color(.red), lineWidth: 1.3)
+                            }
                         }
-                        context.stroke(peakPath, with: .color(.red), lineWidth: 1.3)
+                        if let hover {
+                            var vertical = Path(); vertical.move(to: .init(x: hover.location.x, y: plot.minY)); vertical.addLine(to: .init(x: hover.location.x, y: plot.maxY))
+                            layer.stroke(vertical, with: .color(.white.opacity(0.35)), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                            layer.fill(Path(ellipseIn: CGRect(x: hover.location.x - 4, y: hover.location.y - 4, width: 8, height: 8)), with: .color(hover.color))
+                        }
                     }
-                }
-                if let hover {
-                    var vertical = Path(); vertical.move(to: .init(x: hover.location.x, y: plot.minY)); vertical.addLine(to: .init(x: hover.location.x, y: plot.maxY))
-                    context.stroke(vertical, with: .color(.white.opacity(0.35)), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    context.fill(Path(ellipseIn: CGRect(x: hover.location.x - 4, y: hover.location.y - 4, width: 8, height: 8)), with: .color(hover.color))
                 }
             }
             .contentShape(Rectangle())
@@ -68,6 +73,11 @@ struct SpectrumView: View {
                 case .ended: hover = nil
                 }
             }
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in pan(value, plot: plot) }
+                    .onEnded { _ in dragStartWindow = nil }
+            )
             .overlay(alignment: .top) {
                 if let hover {
                     HStack(spacing: 16) {
@@ -75,6 +85,7 @@ struct SpectrumView: View {
                         Text(String(format: "%.2f dBm", hover.point.level))
                     }
                     .font(.caption.monospacedDigit().bold())
+                    .frame(width: 250)
                     .padding(.horizontal, 12).padding(.vertical, 6)
                     .background(.regularMaterial, in: Capsule())
                     .overlay(Capsule().stroke(hover.color.opacity(0.8), lineWidth: 1))
@@ -92,6 +103,7 @@ struct SpectrumView: View {
         }
         .onChange(of: selected) { _ in
             frequencyWindow = nil
+            dragStartWindow = nil
             hover = nil
         }
     }
@@ -123,6 +135,19 @@ struct SpectrumView: View {
         hover = nil
     }
 
+    private func pan(_ value: DragGesture.Value, plot: CGRect) {
+        guard plot.contains(value.startLocation), let fullRange = visibleFrequencyRange else { return }
+        let start = dragStartWindow ?? FrequencyZoom.clamped(frequencyWindow ?? fullRange, to: fullRange)
+        guard start != fullRange else { return }
+        if dragStartWindow == nil { dragStartWindow = start }
+        frequencyWindow = FrequencyZoom.panned(
+            current: start,
+            full: fullRange,
+            translationFraction: Double(value.translation.width / plot.width)
+        )
+        hover = nil
+    }
+
     private func plotRect(_ size: CGSize) -> CGRect {
         CGRect(x: 68, y: 42, width: max(1, size.width - 88), height: max(1, size.height - 84))
     }
@@ -137,7 +162,7 @@ struct SpectrumView: View {
         guard plot.contains(cursor) else { return nil }
         var result: HoverSample?, bestDistance = Double.greatestFiniteMagnitude
         for (index, scan) in visible {
-            for point in scan.points(atCaptureIndex: timelineCaptureIndex) {
+            for point in scan.points(atCaptureIndex: timelineCaptureIndex) where point.frequency >= bounds.minF && point.frequency <= bounds.maxF {
                 let location = screenLocation(point, plot: plot, bounds: bounds)
                 let distance = hypot(location.x - cursor.x, location.y - cursor.y)
                 if distance < bestDistance {
@@ -202,6 +227,15 @@ enum FrequencyZoom {
         let span = min(fullSpan, max(0, range.upperBound - range.lowerBound))
         guard span < fullSpan else { return full }
         let lower = min(max(range.lowerBound, full.lowerBound), full.upperBound - span)
+        return lower...(lower + span)
+    }
+
+    static func panned(current: ClosedRange<Double>, full: ClosedRange<Double>, translationFraction: Double) -> ClosedRange<Double> {
+        let range = clamped(current, to: full)
+        let span = range.upperBound - range.lowerBound
+        guard span < full.upperBound - full.lowerBound else { return full }
+        let proposedLower = range.lowerBound - translationFraction * span
+        let lower = min(max(proposedLower, full.lowerBound), full.upperBound - span)
         return lower...(lower + span)
     }
 }

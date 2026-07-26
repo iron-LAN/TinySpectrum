@@ -22,4 +22,12 @@ final class FrequencyZoomTests: XCTestCase {
         XCTAssertLessThanOrEqual(result.upperBound, 200)
         XCTAssertEqual(result.upperBound - result.lowerBound, 25, accuracy: 0.0001)
     }
+
+    func testHorizontalPanPreservesSpanAndStopsAtEdges() {
+        let moved = FrequencyZoom.panned(current: 125...175, full: 100...200, translationFraction: -0.25)
+        let clamped = FrequencyZoom.panned(current: moved, full: 100...200, translationFraction: -10)
+
+        XCTAssertEqual(moved, 137.5...187.5)
+        XCTAssertEqual(clamped, 150...200)
+    }
 }
