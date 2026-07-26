@@ -336,7 +336,8 @@ public sealed class CountdownControl : Control
             drawing.ArcTo(new(center.X + radius * Math.Cos(end), center.Y + radius * Math.Sin(end)),
                 new(radius, radius), 0, progress is not null && progress > .5, SweepDirection.Clockwise);
         }
-        context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse("#A855F7")), 3), geometry);
+        var activeColor = progress is null ? "#8497A6" : "#A855F7";
+        context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse(activeColor)), 3), geometry);
         if (progress is null) return;
         var text = RemainingText;
         var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
