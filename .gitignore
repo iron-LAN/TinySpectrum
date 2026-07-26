@@ -1,4 +1,6 @@
 .build/
 dist/
+Windows/**/bin/
+Windows/**/obj/
 .DS_Store
 Screenshots/

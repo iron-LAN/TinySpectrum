@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TinySpectrum.Windows.Tests/TinySpectrum.Windows.Tests.csproj" />
+  <Project Path="TinySpectrum.Windows/TinySpectrum.Windows.csproj" />
+</Solution>

@@ -1,0 +1,122 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:TinySpectrum.Windows"
+        x:Class="TinySpectrum.Windows.MainWindow"
+        x:DataType="local:MainViewModel"
+        Title="TinySpectrum" Width="1440" Height="900" MinWidth="1120" MinHeight="720"
+        Icon="avares://TinySpectrum/Assets/TinySpectrum.ico"
+        Background="#071019" RequestedThemeVariant="Dark">
+  <Grid RowDefinitions="*,Auto">
+    <Grid ColumnDefinitions="*,64,310" Margin="14" ColumnSpacing="10">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <Border Classes="sectionHeader">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="SPECTRUM" Classes="sectionTitle"/>
+            <ToggleButton Grid.Column="1" Content="〰  PEAK HOLD" Classes="peakHold"
+                          IsChecked="{Binding PeakHoldEnabled}" IsEnabled="{Binding HasVisibleContinuous}"/>
+          </Grid>
+        </Border>
+        <Border Grid.Row="1" Background="#07131C" BorderBrush="#254457" BorderThickness="1" CornerRadius="10">
+          <local:SpectrumControl DataContext="{Binding}"/>
+        </Border>
+        <Border Grid.Row="2" Classes="controlCard" Margin="0,10,0,0">
+          <StackPanel Spacing="10">
+            <ItemsControl ItemsSource="{Binding Presets}">
+              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="local:ScanPreset">
+                  <Border Background="#142633" BorderBrush="#2D4A5D" BorderThickness="1" CornerRadius="7" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="0">
+                      <Button Content="{Binding Name}" Tag="{Binding .}" Click="Preset_Click" Classes="chipName"/>
+                      <Button Tag="{Binding .}" Click="DeletePreset_Click" Classes="presetDelete">
+                        <PathIcon Width="12" Height="12" Data="M6,19 C6,20.1 6.9,21 8,21 L16,21 C17.1,21 18,20.1 18,19 L18,7 L6,7 Z M8,9 L16,9 L16,19 L8,19 Z M15.5,4 L14.5,3 L9.5,3 L8.5,4 L5,4 L5,6 L19,6 L19,4 Z"/>
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid ColumnDefinitions="Auto,120,Auto,120,Auto,Auto,*,Auto" ColumnSpacing="8">
+              <TextBlock Text="START" Classes="fieldLabel"/>
+              <TextBox Grid.Column="1" Text="{Binding StartMhzInput}" HorizontalContentAlignment="Right"/>
+              <TextBlock Grid.Column="2" Text="STOP" Classes="fieldLabel"/>
+              <TextBox Grid.Column="3" Text="{Binding StopMhzInput}" HorizontalContentAlignment="Right"/>
+              <TextBlock Grid.Column="4" Text="MHz" Classes="fieldLabel"/>
+              <Button Grid.Column="5" Content="SET" Command="{Binding SetRangeCommand}" Classes="secondary"/>
+              <TextBox Grid.Column="6" Text="{Binding PresetName}" PlaceholderText="Preset name" HorizontalAlignment="Stretch"/>
+              <Button Grid.Column="7" Content="SAVE PRESET" Command="{Binding SavePresetCommand}" Classes="secondary"/>
+            </Grid>
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,42" ColumnSpacing="7">
+              <Button Content="SCAN" Command="{Binding ScanCommand}" Classes="primary"/>
+              <Button Grid.Column="1" Content="STOP" Command="{Binding StopCommand}" Classes="danger"/>
+              <Button Grid.Column="2" Content="CONTINUOUS" Command="{Binding ContinuousCommand}" Classes="purple"/>
+              <Grid Grid.Column="3" ColumnDefinitions="170,85,96" ColumnSpacing="7" HorizontalAlignment="Right" Margin="10,0,0,0">
+                <ComboBox ItemsSource="{Binding RbwOptions}" SelectedItem="{Binding SelectedRbw}"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding IntervalOptions}" SelectedItem="{Binding SelectedInterval}"/>
+                <TextBlock Grid.Column="2" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" HorizontalAlignment="Right"
+                           Foreground="#8297A7" FontFamily="Consolas" Margin="0,0,7,0"/>
+              </Grid>
+              <local:CountdownControl Grid.Column="4" Width="42" Height="42"
+                                      Progress="{Binding IntervalProgress}" RemainingText="{Binding CountdownText}"
+                                      Active="{Binding IsScanning}"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border Grid.Column="1" Background="#0C1721" BorderBrush="#254052" BorderThickness="1" CornerRadius="10" Padding="8">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <TextBlock Text="TIME" Classes="sectionTitle" HorizontalAlignment="Center"/>
+          <Slider Grid.Row="1" Orientation="Vertical" Minimum="0" Maximum="{Binding TimelineMaximum}" Value="{Binding TimelineIndex}"
+                  HorizontalAlignment="Center" Margin="0,12"/>
+          <TextBlock Grid.Row="2" Text="{Binding TimelineIndex}" FontSize="10" Foreground="#8297A7" HorizontalAlignment="Center"/>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Background="#101820" BorderBrush="#294153" BorderThickness="1" CornerRadius="10" Padding="14">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+            <TextBlock Text="SCAN BROWSER" Classes="sectionTitle"/>
+            <TextBlock Grid.Column="1" Text="{Binding VisibleCount, StringFormat={}{0} VISIBLE}" Margin="0,0,12,0" Foreground="#7890A2" FontSize="10" FontWeight="Bold"/>
+            <Button Grid.Column="2" Content="Clear" Command="{Binding ClearCommand}" Classes="link"/>
+          </Grid>
+          <ListBox Grid.Row="1" ItemsSource="{Binding Scans}" Background="Transparent" BorderThickness="0">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:SpectrumScan">
+                <Border BorderBrush="#263845" BorderThickness="0,0,0,1" Padding="3,11">
+                  <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
+                    <Ellipse Width="9" Height="9" Fill="{Binding DisplayColor}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Spacing="3">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                      <TextBlock Text="{Binding DetailsLabel}" FontSize="10" Foreground="#8297A7" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding CaptureLabel}" FontSize="10" Foreground="#BE7BFF"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Tag="{Binding .}" Click="Visibility_Click" Classes="scanSelector">
+                      <Grid Width="16" Height="16">
+                        <Ellipse Stroke="{Binding DisplayColor}" StrokeThickness="1.5"/>
+                        <Ellipse Width="8" Height="8" Fill="{Binding DisplayColor}" IsVisible="{Binding IsVisible}"/>
+                      </Grid>
+                    </Button>
+                    <Button Grid.Column="3" Content="WWB" Tag="{Binding .}" Click="Export_Click" Classes="wwb"/>
+                    <Button Grid.Column="4" Tag="{Binding .}" Click="Delete_Click" Classes="scanDelete">
+                      <PathIcon Width="14" Height="14" Data="M6,19 C6,20.1 6.9,21 8,21 L16,21 C17.1,21 18,20.1 18,19 L18,7 L6,7 Z M8,9 L16,9 L16,19 L8,19 Z M15.5,4 L14.5,3 L9.5,3 L8.5,4 L5,4 L5,6 L19,6 L19,4 Z"/>
+                    </Button>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="1" Background="#101A24" BorderBrush="#294153" BorderThickness="0,1,0,0" Padding="15,8">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="9">
+        <Ellipse Width="7" Height="7" Fill="{Binding ConnectionColor}" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="#9DB0BE"/>
+        <TextBlock Grid.Column="2" Text="{Binding BatteryText}" Foreground="#9DB0BE" FontFamily="Consolas"/>
+        <Button Grid.Column="3" Content="Check for Updates…" Click="CheckUpdates_Click" Classes="link"/>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
