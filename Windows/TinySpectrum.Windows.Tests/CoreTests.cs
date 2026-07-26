@@ -6,6 +6,19 @@ namespace TinySpectrum.Windows.Tests;
 public sealed class CoreTests
 {
     [Fact]
+    public void ScanColorNotifiesWhenPalettePositionChanges()
+    {
+        var scan = new SpectrumScan();
+        var changed = new List<string?>();
+        scan.PropertyChanged += (_, eventArgs) => changed.Add(eventArgs.PropertyName);
+
+        scan.DisplayColor = ScanPalette.At(2);
+
+        Assert.Equal(ScanPalette.At(2), scan.DisplayColor);
+        Assert.Contains(nameof(SpectrumScan.DisplayColor), changed);
+    }
+
+    [Fact]
     public void SweepEstimatorCouplesSpanResolutionAndInterval()
     {
         const double span = 700_000_000;

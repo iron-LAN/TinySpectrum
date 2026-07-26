@@ -29,7 +29,18 @@ public sealed class SpectrumScan : INotifyPropertyChanged
     [JsonIgnore] public string CaptureLabel => IsContinuous ? $"⌚ {CaptureCount} scans" : "";
     [JsonIgnore] public string Title => $"{FrequencyText.Short(StartHz)} – {FrequencyText.Short(StopHz)}";
     [JsonIgnore] public string DetailsLabel => $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}  •  {Rbw}";
-    [JsonIgnore] public string DisplayColor { get; set; } = ScanPalette.Colors[0];
+    private string _displayColor = ScanPalette.Colors[0];
+    [JsonIgnore]
+    public string DisplayColor
+    {
+        get => _displayColor;
+        set
+        {
+            if (_displayColor == value) return;
+            _displayColor = value;
+            OnPropertyChanged();
+        }
+    }
 
     private bool _isVisible = true;
     [JsonIgnore]
