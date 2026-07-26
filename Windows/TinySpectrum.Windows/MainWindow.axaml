@@ -106,9 +106,10 @@
     </Grid>
 
     <Border Grid.Row="1" Background="#101A24" BorderBrush="#294153" BorderThickness="0,1,0,0" Padding="15,8">
-      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
-        <Ellipse Width="7" Height="7" Fill="#19D9FF" VerticalAlignment="Center"/>
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
+        <Ellipse Width="7" Height="7" Fill="{Binding ConnectionColor}" VerticalAlignment="Center"/>
         <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="#9DB0BE"/>
+        <TextBlock Grid.Column="2" Text="{Binding BatteryText}" Foreground="#9DB0BE" FontFamily="Consolas"/>
       </Grid>
     </Border>
   </Grid>

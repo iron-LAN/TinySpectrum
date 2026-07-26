@@ -66,6 +66,21 @@ public sealed class TinySaSerial : IDisposable
         finally { _gate.Release(); }
     }
 
+    public async Task<int> BatteryVoltageAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var response = await CommandAsync("vbat", TimeSpan.FromSeconds(3), cancellationToken);
+            var values = response.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                .Select(token => int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : -1);
+            var millivolts = values.FirstOrDefault(value => value is >= 2500 and <= 5000);
+            if (millivolts == 0) throw new IOException("The tinySA returned no readable battery voltage.");
+            return millivolts;
+        }
+        finally { _gate.Release(); }
+    }
+
     public void Abort()
     {
         try { if (_port?.IsOpen == true) _port.Write("abort\r\n"); } catch { }

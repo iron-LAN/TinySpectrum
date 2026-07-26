@@ -35,7 +35,7 @@ dotnet test Windows/TinySpectrum.Windows.slnx -c Release
 ## Package
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Version 0.2.0-beta.4
+powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1 -Version 0.2.0-beta.5
 ```
 
-The self-contained archive is written to `dist/TinySpectrum-0.2.0-beta.4-win-x64.zip`.
+The self-contained archive is written to `dist/TinySpectrum-0.2.0-beta.5-win-x64.zip`.

@@ -15,12 +15,6 @@ public sealed class SpectrumControl : Control
     private Point _dragStart;
     private HoverSample? _hover;
 
-    private static readonly Color[] TraceColors =
-    [
-        Color.Parse("#19D9FF"), Color.Parse("#FF8C24"), Color.Parse("#B05CFF"),
-        Color.Parse("#32E38A"), Color.Parse("#FF4D9D"), Color.Parse("#F5D62E")
-    ];
-
     public SpectrumControl()
     {
         DataContextChanged += (_, _) => AttachViewModel();
@@ -70,7 +64,7 @@ public sealed class SpectrumControl : Control
             {
                 var scan = visible[scanIndex];
                 DrawTrace(context, scan.PointsAt(scan.IsContinuous ? _viewModel!.TimelineIndex : null), plot, range,
-                    new Pen(new SolidColorBrush(TraceColors[scanIndex % TraceColors.Length]), 1.8));
+                    new Pen(new SolidColorBrush(TraceColor(scan)), 1.8));
                 if (_viewModel!.PeakHoldEnabled && scan.IsContinuous)
                     DrawTrace(context, scan.PeakHoldAt(_viewModel.TimelineIndex), plot, range, new Pen(Brushes.Red, 1.2));
             }
@@ -180,10 +174,16 @@ public sealed class SpectrumControl : Control
                 var distance = Math.Sqrt(Math.Pow(location.X - cursor.X, 2) + Math.Pow(location.Y - cursor.Y, 2));
                 if (distance >= bestDistance) continue;
                 bestDistance = distance;
-                nearest = new(point, TraceColors[scanIndex % TraceColors.Length], location);
+                nearest = new(point, TraceColor(visible[scanIndex]), location);
             }
         }
         return nearest;
+    }
+
+    private Color TraceColor(SpectrumScan scan)
+    {
+        var index = _viewModel?.Scans.IndexOf(scan) ?? 0;
+        return Color.Parse(ScanPalette.At(index));
     }
 
     private static void DrawTrace(DrawingContext context, IReadOnlyList<ScanPoint> points, Rect plot,

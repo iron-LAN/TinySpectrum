@@ -9,6 +9,12 @@ namespace TinySpectrum.Windows;
 public sealed record ScanPoint(double Frequency, double Level);
 public sealed record ScanCapture(DateTimeOffset Date, List<ScanPoint> Points);
 
+public static class ScanPalette
+{
+    public static readonly string[] Colors = ["#19D9FF", "#FF8C24", "#B05CFF", "#32E38A", "#FF4D9D", "#F5D62E"];
+    public static string At(int index) => Colors[Math.Max(0, index) % Colors.Length];
+}
+
 public sealed class SpectrumScan : INotifyPropertyChanged
 {
     public Guid Id { get; init; } = Guid.NewGuid();
@@ -23,7 +29,7 @@ public sealed class SpectrumScan : INotifyPropertyChanged
     [JsonIgnore] public string CaptureLabel => IsContinuous ? $"⌚ {CaptureCount} scans" : "";
     [JsonIgnore] public string Title => $"{FrequencyText.Short(StartHz)} – {FrequencyText.Short(StopHz)}";
     [JsonIgnore] public string DetailsLabel => $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}  •  {Rbw}";
-    [JsonIgnore] public string DisplayColor { get; set; } = "#19D9FF";
+    [JsonIgnore] public string DisplayColor { get; set; } = ScanPalette.Colors[0];
 
     private bool _isVisible = true;
     [JsonIgnore]

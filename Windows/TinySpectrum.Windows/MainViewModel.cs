@@ -13,11 +13,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly DispatcherTimer _portTimer;
     private CancellationTokenSource? _scanCancellation;
     private bool _connectInFlight;
+    private bool _batteryPollInFlight;
     private bool _timingDrivenByInterval;
     private bool _isScanning;
     private bool _isConnected;
     private bool _peakHoldEnabled;
-    private string _status = "Looking for a tinySA Ultra…";
+    private string _status = "Looking for TinySA…";
     private string? _selectedPort;
     private string _exportLocation = "UnknownLocation";
     private string _presetName = "";
@@ -30,6 +31,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private double? _intervalProgress;
     private double? _nextScanRemaining;
     private int _timelineIndex;
+    private int? _batteryMillivolts;
+    private DateTimeOffset _lastBatteryPoll = DateTimeOffset.MinValue;
 
     public ObservableCollection<string> Ports { get; } = [];
     public ObservableCollection<SpectrumScan> Scans { get; } = [];
@@ -69,6 +72,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); OnPropertyChanged(nameof(ConnectionColor)); } }
     public string ConnectionText => IsConnected ? _serial.PortName ?? "CONNECTED" : "LOOKING FOR TINYSA";
     public string ConnectionColor => IsConnected ? "#32E38A" : "#7890A2";
+    public string BatteryText => _batteryMillivolts is { } millivolts
+        ? $"~{BatteryPercent(millivolts)}%  •  {millivolts / 1000.0:0.00} V"
+        : "";
     public bool IsScanning { get => _isScanning; private set { Set(ref _isScanning, value); RaiseCommands(); } }
     public bool CanScan => IsConnected && !IsScanning;
     public string PresetName { get => _presetName; set { if (Set(ref _presetName, value)) SavePresetCommand.RaiseCanExecuteChanged(); } }
@@ -105,9 +111,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _connectInFlight = true;
         try
         {
-            Status = $"Connecting to {SelectedPort}…";
+            Status = "Connecting to TinySA…";
             await _serial.ConnectAsync(SelectedPort);
-            IsConnected = true; Status = $"tinySA connected on {SelectedPort}";
+            IsConnected = true; _lastBatteryPoll = DateTimeOffset.MinValue; Status = "TinySA connected";
         }
         catch (Exception exception) { IsConnected = false; Status = exception.Message; }
         finally { _connectInFlight = false; }
@@ -231,8 +237,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void RefreshScanColors()
     {
-        string[] colors = ["#19D9FF", "#B56BFF", "#32E38A", "#FFB547", "#FF647C", "#65A8FF"];
-        for (var index = 0; index < Scans.Count; index++) Scans[index].DisplayColor = colors[index % colors.Length];
+        for (var index = 0; index < Scans.Count; index++) Scans[index].DisplayColor = ScanPalette.At(index);
     }
 
     private void SavePreset()
@@ -255,11 +260,37 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             await _serial.DisconnectAsync();
             IsConnected = false;
-            Status = "tinySA disconnected — looking for it…";
+            _batteryMillivolts = null; OnPropertyChanged(nameof(BatteryText));
+            Status = "TinySA disconnected — looking for it…";
         }
         if (SelectedPort is null || !Ports.Contains(SelectedPort)) SelectedPort = Ports.FirstOrDefault();
         if (!IsConnected && !IsScanning && SelectedPort is not null) await ConnectAsync();
-        else if (!IsConnected && SelectedPort is null) Status = "Looking for a tinySA Ultra…";
+        else if (!IsConnected && SelectedPort is null) Status = "Looking for TinySA…";
+        if (IsConnected && !IsScanning && !_batteryPollInFlight && DateTimeOffset.Now - _lastBatteryPoll >= TimeSpan.FromMinutes(1))
+            await PollBatteryAsync();
+    }
+
+    private async Task PollBatteryAsync()
+    {
+        _batteryPollInFlight = true;
+        _lastBatteryPoll = DateTimeOffset.Now;
+        try { _batteryMillivolts = await _serial.BatteryVoltageAsync(); OnPropertyChanged(nameof(BatteryText)); }
+        catch { }
+        finally { _batteryPollInFlight = false; }
+    }
+
+    private static int BatteryPercent(int millivolts)
+    {
+        (int Millivolts, int Percent)[] curve = [(3400, 0), (3600, 10), (3700, 20), (3800, 40), (3900, 60), (4000, 80), (4100, 90), (4200, 100)];
+        if (millivolts <= curve[0].Millivolts) return 0;
+        if (millivolts >= curve[^1].Millivolts) return 100;
+        for (var index = 1; index < curve.Length; index++)
+        {
+            if (millivolts > curve[index].Millivolts) continue;
+            var low = curve[index - 1]; var high = curve[index];
+            return low.Percent + (millivolts - low.Millivolts) * (high.Percent - low.Percent) / (high.Millivolts - low.Millivolts);
+        }
+        return 0;
     }
 
     private void RangeChanged()
