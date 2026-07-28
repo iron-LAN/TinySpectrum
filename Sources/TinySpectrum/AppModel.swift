@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     @Published var timelinePosition = 1.0
     @Published var timelineCaptureIndex: Int?
     @Published var batteryMillivolts: Int?
+    @Published var deviceProfile = TinySAProfile.regular
     @Published var currentCity: String?
     @Published var presets: [ScanPreset] = [
         .init(id: UUID(), name: "FM Broadcast", startHz: 87_500_000, stopHz: 108_000_000),
@@ -84,9 +85,11 @@ final class AppModel: ObservableObject {
         status = "Connecting to TinySA…"
         Task {
             do {
-                try await serial.connect(path: device.path)
+                deviceProfile = try await serial.connect(path: device.path)
+                maxHz = deviceProfile.maximumHz
+                if !deviceProfile.supports(rbw) { rbw = .khz30 }
                 isConnected = true
-                status = "TinySA connected"
+                status = "\(deviceProfile.name) connected"
                 lastBatteryPoll = .distantPast
             } catch {
                 selectedDevice = nil
@@ -131,7 +134,7 @@ final class AppModel: ObservableObject {
                 do {
                     status = "Scanning \(SpectrumScan.short(startHz)) – \(SpectrumScan.short(stopHz))…"
                     let effectiveRBW = rbw
-                    let pointCount = shouldRepeat ? 145 : 450
+                    let pointCount = shouldRepeat ? min(145, deviceProfile.maximumPoints) : deviceProfile.maximumPoints
                     let values = try await serial.scan(startHz: startHz, stopHz: stopHz, rbw: effectiveRBW, points: pointCount)
                     let capture = ScanCapture(date: Date(), points: values)
                     if shouldRepeat, let groupID = continuousGroupID, let index = scans.firstIndex(where: { $0.id == groupID }) {
@@ -140,8 +143,8 @@ final class AppModel: ObservableObject {
                         updateTimelinePosition(for: scans[index])
                         status = "Continuous scan • \(scans[index].captureCount) captures"
                     } else {
-                        let resolutionLabel = shouldRepeat ? "\(effectiveRBW.rawValue) • every \(scanInterval.label) • 145 pts" : effectiveRBW.rawValue
-                        let scan = SpectrumScan(id: UUID(), date: capture.date, startHz: startHz, stopHz: stopHz, rbw: resolutionLabel, points: values, captures: shouldRepeat ? [capture] : nil)
+                        let resolutionLabel = shouldRepeat ? "\(effectiveRBW.rawValue) • every \(scanInterval.label) • \(values.count) pts" : effectiveRBW.rawValue
+                        let scan = SpectrumScan(id: UUID(), date: capture.date, startHz: values.first?.frequency ?? startHz, stopHz: values.last?.frequency ?? stopHz, rbw: resolutionLabel, points: values, captures: shouldRepeat ? [capture] : nil)
                         scans.insert(scan, at: 0)
                         showScan(scan)
                         if shouldRepeat { continuousGroupID = scan.id }
@@ -189,17 +192,26 @@ final class AppModel: ObservableObject {
     func selectInterval(_ value: ScanInterval) {
         timingDriver = .interval
         scanInterval = value
-        rbw = SweepEstimator.finestRBW(spanHz: scanSpanHz, fitting: value)
+        rbw = availableRBWs.first { SweepEstimator.duration(spanHz: scanSpanHz, rbw: $0) <= value.seconds } ?? availableRBWs.last ?? .khz30
     }
     func frequencyRangeDidChange() {
         switch timingDriver {
         case .resolution:
             scanInterval = SweepEstimator.shortestInterval(spanHz: scanSpanHz, fitting: rbw)
         case .interval:
-            rbw = SweepEstimator.finestRBW(spanHz: scanSpanHz, fitting: scanInterval)
+            rbw = availableRBWs.first { SweepEstimator.duration(spanHz: scanSpanHz, rbw: $0) <= scanInterval.seconds } ?? availableRBWs.last ?? .khz30
         }
     }
     var estimatedSweepDuration: TimeInterval { SweepEstimator.duration(spanHz: scanSpanHz, rbw: rbw) }
+    var availableRBWs: [RBW] { RBW.allCases.filter(deviceProfile.supports) }
+    func applyRange(startHz: Double, stopHz: Double) {
+        self.startHz = startHz; self.stopHz = stopHz; frequencyRangeDidChange()
+        guard isConnected else { return }
+        Task {
+            do { try await serial.configureRange(startHz: startHz, stopHz: stopHz); status = "Range set to \(SpectrumScan.short(startHz)) – \(SpectrumScan.short(stopHz))" }
+            catch { status = error.localizedDescription }
+        }
+    }
     private var scanSpanHz: Double { max(1, stopHz - startHz) }
     func addPreset(name: String) { presets.append(.init(id: UUID(), name: name, startHz: startHz, stopHz: stopHz)); save() }
     func deletePreset(_ preset: ScanPreset) { presets.removeAll { $0.id == preset.id }; save() }

@@ -80,9 +80,12 @@ jobs:
       - name: Publish combined release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create "$GITHUB_REF_NAME"
-          release/*
-          --repo "$GITHUB_REPOSITORY"
-          --title "TinySpectrum ${GITHUB_REF_NAME}"
-          --generate-notes
+        run: |
+          PRERELEASE=""
+          if [[ "$GITHUB_REF_NAME" == *-beta.* ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" \
+            release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "TinySpectrum ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            $PRERELEASE

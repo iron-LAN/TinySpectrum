@@ -6,6 +6,29 @@ namespace TinySpectrum.Windows.Tests;
 public sealed class CoreTests
 {
     [Fact]
+    public void RegularTinySaUsesBasicLimitsAndInputModes()
+    {
+        var basic = TinySaProfile.FromInfo("tinySA_v1.4");
+        Assert.False(basic.IsUltra);
+        Assert.Equal(290, basic.MaximumPoints);
+        Assert.Equal("low", basic.InputMode(87_500_000, 108_000_000));
+        Assert.Equal("high", basic.InputMode(470_000_000, 700_000_000));
+        Assert.Throws<InvalidOperationException>(() => basic.InputMode(100_000_000, 700_000_000));
+        Assert.False(basic.Supports(RbwOption.All[0]));
+        Assert.True(basic.Supports(RbwOption.All[4]));
+    }
+
+    [Fact]
+    public void UltraDetectionKeepsWideCapabilities()
+    {
+        var ultra = TinySaProfile.FromInfo("tinySA4 Ultra");
+        Assert.True(ultra.IsUltra);
+        Assert.Equal(450, ultra.MaximumPoints);
+        Assert.Null(ultra.InputMode(100_000, 5_300_000_000));
+        Assert.True(ultra.Supports(RbwOption.All[0]));
+    }
+
+    [Fact]
     public void ScanColorNotifiesWhenPalettePositionChanges()
     {
         var scan = new SpectrumScan();

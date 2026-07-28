@@ -8,13 +8,14 @@ struct SerialCandidate: Identifiable, Hashable {
 }
 
 enum SerialError: LocalizedError {
-    case openFailed(String), timeout, stopped, malformedResponse
+    case openFailed(String), timeout, stopped, malformedResponse, unsupportedRange(String)
     var errorDescription: String? {
         switch self {
         case .openFailed(let path): "Could not open \(path). Close other TinySA apps and reconnect the USB cable."
         case .timeout: "The TinySA did not finish responding in time."
         case .stopped: "Scan stopped."
         case .malformedResponse: "The TinySA returned no readable measurement points."
+        case .unsupportedRange(let message): message
         }
     }
 }
@@ -22,6 +23,7 @@ enum SerialError: LocalizedError {
 actor TinySASerial {
     private var descriptor: Int32 = -1
     private var cancelled = false
+    private(set) var profile = TinySAProfile.regular
 
     static func candidates() -> [SerialCandidate] {
         let patterns = ["/dev/cu.usbmodem*", "/dev/cu.usbserial*", "/dev/cu.wchusbserial*"]
@@ -38,7 +40,7 @@ actor TinySASerial {
         }
     }
 
-    func connect(path: String) throws {
+    func connect(path: String) async throws -> TinySAProfile {
         closePort()
         descriptor = Darwin.open(path, O_RDWR | O_NOCTTY | O_NONBLOCK)
         guard descriptor >= 0 else { throw SerialError.openFailed(path) }
@@ -51,6 +53,11 @@ actor TinySASerial {
             _ = tcsetattr(descriptor, TCSANOW, &settings)
         }
         tcflush(descriptor, TCIOFLUSH)
+        do {
+            try write("info\r\n")
+            profile = .from(info: try await readResponse(timeout: 3))
+        } catch { profile = .regular }
+        return profile
     }
 
     func disconnect() { closePort() }
@@ -76,23 +83,36 @@ actor TinySASerial {
 
     func scan(startHz: Double, stopHz: Double, rbw: RBW, points: Int = 450) async throws -> [ScanPoint] {
         cancelled = false
+        try await configureRange(startHz: startHz, stopHz: stopHz)
+        guard profile.supports(rbw) else { throw SerialError.unsupportedRange("\(profile.name) supports resolution bandwidths from 3 to 600 kHz.") }
         try write("abort on\r\n")
         _ = try await readResponse(timeout: 3)
         try write("rbw \(rbw.command)\r\n")
         _ = try await readResponse(timeout: 3)
-        try write("scan \(Int(startHz)) \(Int(stopHz)) \(points) 2\r\n")
+        let safePoints = min(profile.maximumPoints, max(2, points))
+        try write("scan \(Int(startHz)) \(Int(stopHz)) \(safePoints) 3\r\n")
         // A narrow RBW over a wide span can legitimately take several minutes.
         let response = try await readResponse(timeout: 600)
         if cancelled { throw SerialError.stopped }
-        let levels = response.split(whereSeparator: \Character.isNewline).compactMap { line -> Double? in
+        let values = response.split(whereSeparator: \Character.isNewline).compactMap { line -> ScanPoint? in
             let cleaned = line.replacingOccurrences(of: "-:.0", with: "-10.0")
-            return cleaned.split(whereSeparator: \Character.isWhitespace).first.flatMap { Double($0) }
+            let fields = cleaned.split(whereSeparator: \Character.isWhitespace)
+            guard fields.count >= 2, let frequency = Double(fields[0]), let level = Double(fields[1]) else { return nil }
+            return ScanPoint(frequency: frequency, level: level)
         }
-        guard levels.count >= 2 else { throw SerialError.malformedResponse }
-        return levels.enumerated().map { index, level in
-            let f = startHz + (stopHz - startHz) * Double(index) / Double(levels.count - 1)
-            return ScanPoint(frequency: f, level: level)
+        guard values.count >= 2 else { throw SerialError.malformedResponse }
+        return values
+    }
+
+    func configureRange(startHz: Double, stopHz: Double) async throws {
+        guard startHz >= 100_000, stopHz <= profile.maximumHz, stopHz > startHz else {
+            throw SerialError.unsupportedRange("The selected range is outside the supported range of \(profile.name).")
         }
+        if let mode = try profile.inputMode(startHz: startHz, stopHz: stopHz) {
+            try write("mode \(mode) input\r\n"); _ = try await readResponse(timeout: 3)
+        }
+        try write("sweep start \(Int(startHz))\r\n"); _ = try await readResponse(timeout: 3)
+        try write("sweep stop \(Int(stopHz))\r\n"); _ = try await readResponse(timeout: 3)
     }
 
     private func write(_ string: String) throws {

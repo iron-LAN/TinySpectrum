@@ -38,13 +38,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ObservableCollection<string> Ports { get; } = [];
     public ObservableCollection<SpectrumScan> Scans { get; } = [];
     public ObservableCollection<ScanPreset> Presets { get; } = [];
-    public IReadOnlyList<RbwOption> RbwOptions => RbwOption.All;
+    public IReadOnlyList<RbwOption> RbwOptions => RbwOption.All.Where(_serial.Profile.Supports).ToArray();
     public IReadOnlyList<IntervalOption> IntervalOptions => IntervalOption.All;
 
     public AsyncCommand ScanCommand { get; }
     public AsyncCommand ContinuousCommand { get; }
     public RelayCommand StopCommand { get; }
-    public RelayCommand SetRangeCommand { get; }
+    public AsyncCommand SetRangeCommand { get; }
     public RelayCommand SavePresetCommand { get; }
     public RelayCommand ClearCommand { get; }
 
@@ -58,7 +58,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ScanCommand = new(() => BeginScanAsync(false), () => CanScan);
         ContinuousCommand = new(() => BeginScanAsync(true), () => CanScan);
         StopCommand = new(Stop, () => IsScanning);
-        SetRangeCommand = new(SetRange, () => !IsScanning);
+        SetRangeCommand = new(SetRangeAsync, () => !IsScanning);
         SavePresetCommand = new(SavePreset, () => !string.IsNullOrWhiteSpace(PresetName));
         ClearCommand = new(() => { foreach (var scan in Scans) scan.IsVisible = false; NotifySpectrum(); });
 
@@ -115,6 +115,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             Status = "Connecting to TinySA…";
             await _serial.ConnectAsync(SelectedPort);
+            OnPropertyChanged(nameof(RbwOptions));
+            if (!_serial.Profile.Supports(SelectedRbw)) SelectedRbw = RbwOptions.First(x => x.BandwidthHz == 30_000);
             IsConnected = true; _lastBatteryPoll = DateTimeOffset.MinValue; _connectionRetryAfter = DateTimeOffset.MinValue; Status = "TinySA connected";
         }
         catch { await MarkDisconnectedAsync(); }
@@ -144,8 +146,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 {
                     session = new SpectrumScan
                     {
-                        StartHz = StartMhz * 1e6,
-                        StopHz = StopMhz * 1e6,
+                        StartHz = points[0].Frequency,
+                        StopHz = points[^1].Frequency,
                         Date = capture.Date,
                         Rbw = continuous ? $"{SelectedRbw.Label} • every {SelectedInterval.Label} • {points.Count} pts" : SelectedRbw.Label,
                         Points = points.ToList(),
@@ -217,7 +219,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Save();
     }
 
-    private void SetRange()
+    private async Task SetRangeAsync()
     {
         if (!TryParseMhz(StartMhzInput, out var start) || !TryParseMhz(StopMhzInput, out var stop))
         {
@@ -228,7 +230,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         StopMhz = Math.Clamp(stop, StartMhz + .001, 5300);
         StartMhzInput = FormatMhz(StartMhz); StopMhzInput = FormatMhz(StopMhz);
         RangeChanged();
-        Status = $"Range set to {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}";
+        try
+        {
+            if (IsConnected) await _serial.ConfigureRangeAsync(StartMhz * 1e6, StopMhz * 1e6);
+            Status = $"Range set to {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}";
+        }
+        catch (Exception exception) { Status = exception.Message; }
     }
 
     private static bool TryParseMhz(string text, out double value) =>
@@ -331,7 +338,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(VisibleCount)); OnPropertyChanged("Spectrum");
     }
     private void Save() => _store.Save(Scans, Presets);
-    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); SetRangeCommand.RaiseCanExecuteChanged(); }
+    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); SetRangeCommand.Raise(); }
     private static string DurationText(double duration)
     {
         var seconds = Math.Max(1, (int)Math.Round(duration));

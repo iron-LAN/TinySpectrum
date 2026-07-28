@@ -100,6 +100,26 @@ enum RBW: String, CaseIterable, Identifiable {
     }
 }
 
+struct TinySAProfile: Equatable {
+    let isUltra: Bool
+    var name: String { isUltra ? "tinySA Ultra" : "tinySA Basic" }
+    var maximumPoints: Int { isUltra ? 450 : 290 }
+    var maximumHz: Double { isUltra ? 5_300_000_000 : 960_000_000 }
+    static let regular = TinySAProfile(isUltra: false)
+    static let ultra = TinySAProfile(isUltra: true)
+    static func from(info: String) -> TinySAProfile {
+        let text = info.lowercased()
+        return text.contains("ultra") || text.contains("tinysa4") ? .ultra : .regular
+    }
+    func supports(_ rbw: RBW) -> Bool { isUltra || (3_000...600_000).contains(rbw.bandwidthHz) }
+    func inputMode(startHz: Double, stopHz: Double) throws -> String? {
+        if isUltra { return nil }
+        if startHz >= 100_000, stopHz <= 350_000_000 { return "low" }
+        if startHz >= 240_000_000, stopHz <= 960_000_000 { return "high" }
+        throw SerialError.unsupportedRange("A tinySA Basic scan must fit entirely in LOW input (0.1–350 MHz) or HIGH input (240–960 MHz).")
+    }
+}
+
 enum ScanInterval: Int, CaseIterable, Identifiable {
     case seconds10 = 10
     case seconds30 = 30

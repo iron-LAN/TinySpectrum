@@ -9,6 +9,23 @@ namespace TinySpectrum.Windows;
 public sealed record ScanPoint(double Frequency, double Level);
 public sealed record ScanCapture(DateTimeOffset Date, List<ScanPoint> Points);
 
+public sealed record TinySaProfile(bool IsUltra, string Name, int MaximumPoints, double MaximumHz)
+{
+    public static TinySaProfile Regular { get; } = new(false, "tinySA Basic", 290, 960_000_000);
+    public static TinySaProfile Ultra { get; } = new(true, "tinySA Ultra", 450, 5_300_000_000);
+    public static TinySaProfile FromInfo(string info) =>
+        info.Contains("ultra", StringComparison.OrdinalIgnoreCase) || info.Contains("tinySA4", StringComparison.OrdinalIgnoreCase)
+            ? Ultra : Regular;
+    public bool Supports(RbwOption rbw) => IsUltra || rbw.BandwidthHz is >= 3_000 and <= 600_000;
+    public string? InputMode(double startHz, double stopHz)
+    {
+        if (IsUltra) return null;
+        if (startHz >= 100_000 && stopHz <= 350_000_000) return "low";
+        if (startHz >= 240_000_000 && stopHz <= 960_000_000) return "high";
+        throw new InvalidOperationException("A tinySA Basic scan must fit entirely in LOW input (0.1–350 MHz) or HIGH input (240–960 MHz).");
+    }
+}
+
 public static class ScanPalette
 {
     public static readonly string[] Colors = ["#19D9FF", "#FF8C24", "#B05CFF", "#32E38A", "#FF4D9D", "#F5D62E"];

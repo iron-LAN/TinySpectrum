@@ -139,7 +139,7 @@ struct ContentView: View {
                 Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
                 Spacer()
                 Picker("Resolution", selection: Binding(get: { model.rbw }, set: { model.selectRBW($0) })) {
-                    ForEach(RBW.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(model.availableRBWs) { Text($0.rawValue).tag($0) }
                 }
                 .frame(width: 235)
                 .disabled(model.isScanning)
@@ -198,7 +198,7 @@ struct ContentView: View {
     private func applyDraftRange() {
         let start = max(100_000, min(draftStartMHz * 1e6, model.maxHz - 1))
         let stop = max(start + 1, min(draftStopMHz * 1e6, model.maxHz))
-        model.startHz = start; model.stopHz = stop
+        model.applyRange(startHz: start, stopHz: stop)
         draftStartMHz = start / 1e6; draftStopMHz = stop / 1e6
     }
 
