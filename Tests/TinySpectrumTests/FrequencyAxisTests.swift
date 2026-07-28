@@ -17,6 +17,11 @@ final class FrequencyAxisTests: XCTestCase {
         XCTAssertEqual(FrequencyAxis.label(470_025_000, step: 25_000), "470.025 MHz")
     }
 
+    func testLabelsSwitchToGHzForGHzScans() {
+        XCTAssertEqual(FrequencyAxis.label(2_400_000_000, step: 100_000_000), "2.400 GHz")
+        XCTAssertEqual(FrequencyAxis.label(2_400_025_000, step: 25_000), "2.400025 GHz")
+    }
+
     func testTicksAlignToStepWhilePanned() {
         XCTAssertEqual(
             FrequencyAxis.ticks(for: 470_012_000...470_112_000, step: 25_000),

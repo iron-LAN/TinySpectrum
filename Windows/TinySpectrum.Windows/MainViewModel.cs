@@ -71,7 +71,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string? SelectedPort { get => _selectedPort; set => Set(ref _selectedPort, value); }
     public string ExportLocation { get => _exportLocation; set => Set(ref _exportLocation, value); }
     public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); OnPropertyChanged(nameof(ConnectionColor)); } }
-    public string ConnectionText => IsConnected ? _serial.PortName ?? "CONNECTED" : "LOOKING FOR TINYSA";
+    public string ConnectionText => IsConnected ? _serial.Profile.Name.ToUpperInvariant() : "LOOKING FOR TINYSA";
     public string ConnectionColor => IsConnected ? "#32E38A" : "#7890A2";
     public string BatteryText => _batteryMillivolts is { } millivolts
         ? $"~{BatteryPercent(millivolts)}%  •  {millivolts / 1000.0:0.00} V"

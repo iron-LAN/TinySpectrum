@@ -232,10 +232,23 @@ public static class FrequencyAxis
         return result;
     }
 
-    public static string Label(double frequency) =>
-        frequency >= 1e6
-            ? string.Create(CultureInfo.InvariantCulture, $"{frequency / 1e6:F3} MHz")
-            : string.Create(CultureInfo.InvariantCulture, $"{frequency / 1e3:F3} kHz");
+    public static string Label(double frequency, double step)
+    {
+        var divisor = Math.Abs(frequency) >= 1e9 || step >= 1e9 ? 1e9 : Math.Abs(frequency) >= 1e6 || step >= 1e6 ? 1e6 : 1e3;
+        var unit = divisor == 1e9 ? "GHz" : divisor == 1e6 ? "MHz" : "kHz";
+        var decimals = divisor == 1e9 ? Math.Clamp(DecimalPlaces(step / divisor), 3, 6) : 3;
+        return $"{(frequency / divisor).ToString($"F{decimals}", CultureInfo.InvariantCulture)} {unit}";
+    }
+
+    private static int DecimalPlaces(double value)
+    {
+        for (var decimals = 0; decimals <= 6; decimals++)
+        {
+            var scale = Math.Pow(10, decimals);
+            if (Math.Abs(value * scale - Math.Round(value * scale)) < 1e-7) return decimals;
+        }
+        return 6;
+    }
 }
 
 public static class ExportFileName

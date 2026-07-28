@@ -154,6 +154,14 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void FrequencyAxisUsesGhzForGhzScans()
+    {
+        Assert.Equal("2.400 GHz", FrequencyAxis.Label(2_400_000_000, 100_000_000));
+        Assert.Equal("2.400025 GHz", FrequencyAxis.Label(2_400_025_000, 25_000));
+        Assert.Equal("470.025 MHz", FrequencyAxis.Label(470_025_000, 25_000));
+    }
+
+    [Fact]
     public void ExportNameUsesShortDateLocationAndTrailingUnderscore()
     {
         var date = new DateTimeOffset(2026, 7, 26, 18, 30, 0, TimeSpan.FromHours(2));

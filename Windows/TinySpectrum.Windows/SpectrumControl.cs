@@ -233,7 +233,7 @@ public sealed class SpectrumControl : Control
         {
             var value = values[index];
             var x = plot.X + (value - range.Start) / (range.Stop - range.Start) * plot.Width;
-            var text = FrequencyAxis.Label(value);
+            var text = FrequencyAxis.Label(value, step);
             var alignment = index == 0 ? TextAlignment.Left : index == values.Count - 1 ? TextAlignment.Right : TextAlignment.Center;
             DrawTextAligned(context, text, new(x, plot.Bottom + 12), 11, "#8497A6", alignment);
         }

@@ -258,11 +258,12 @@ enum FrequencyAxis {
     }
 
     static func label(_ frequency: Double, step: Double) -> String {
-        let useMHz = abs(frequency) >= 1_000_000 || step >= 1_000_000
-        let divisor = useMHz ? 1_000_000.0 : 1_000.0
-        let unit = useMHz ? "MHz" : "kHz"
+        let useGHz = abs(frequency) >= 1_000_000_000 || step >= 1_000_000_000
+        let useMHz = !useGHz && (abs(frequency) >= 1_000_000 || step >= 1_000_000)
+        let divisor = useGHz ? 1_000_000_000.0 : useMHz ? 1_000_000.0 : 1_000.0
+        let unit = useGHz ? "GHz" : useMHz ? "MHz" : "kHz"
         let scaledStep = step / divisor
-        let decimals = useMHz ? 3 : decimalPlaces(for: scaledStep)
+        let decimals = useGHz ? min(6, max(3, decimalPlaces(for: scaledStep))) : useMHz ? 3 : decimalPlaces(for: scaledStep)
         return String(format: "%.*f %@", decimals, frequency / divisor, unit)
     }
 
