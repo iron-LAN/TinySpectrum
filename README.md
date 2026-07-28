@@ -1,7 +1,7 @@
 # TinySpectrum
 
 <p align="center">
-  <strong>A modern macOS and Windows spectrum scanner for tinySA Ultra and Ultra+.</strong><br>
+  <strong>A modern macOS and Windows spectrum scanner for tinySA Ultra.</strong><br>
   Scan, compare, monitor, and export RF activity without sending your measurements to the cloud.
 </p>
 
@@ -13,6 +13,16 @@
 </p>
 
 TinySpectrum turns a tinySA Ultra into a focused desktop scanning tool. It connects automatically over USB, keeps scan history locally, supports continuous timeline capture, and exports measurements for Shure Wireless Workbench.
+
+## Device compatibility
+
+| Device | Status | Notes |
+| --- | --- | --- |
+| tinySA Ultra ZS405 | **Confirmed working** | Tested with the current stable macOS and Windows releases. |
+| tinySA Basic | **Beta testing** | Initial compatibility is available in [`v2.4.0-beta.1`](https://github.com/iron-LAN/TinySpectrum/releases/tag/v2.4.0-beta.1), but has not yet been confirmed on enough physical devices. |
+| tinySA Ultra+ | **Not yet verified** | It may work through the Ultra-compatible command set, but it is not currently claimed as tested or supported. |
+
+At present, the tinySA Ultra ZS405 is the only model known and confirmed to work. If you test the `2.4.0` beta with a tinySA Basic, please include the device model, firmware version, operating system, selected range, and input connector when reporting the result.
 
 <p align="center">
   <img src="https://github.com/iron-LAN/TinySpectrum/releases/download/v2.2.0/Peak.Hold.png" alt="TinySpectrum showing a continuous scan with cumulative Peak Hold" width="100%">
@@ -122,7 +132,7 @@ TinySpectrum exposes the manual RBWs supported by tinySA Ultra firmware:
 
 `200 Hz` · `1 kHz` · `3 kHz` · `10 kHz` · `30 kHz` · `100 kHz` · `300 kHz` · `600 kHz` · `850 kHz`
 
-The ZS405 range is conservatively limited to 5.3 GHz. Hardware capabilities and calibrated ranges can differ between Ultra and Ultra+ models.
+The ZS405 range is conservatively limited to 5.3 GHz. The `2.4.0` beta applies the documented 3–600 kHz RBW and 290-point limits when it detects a tinySA Basic. Hardware capabilities and calibrated ranges can differ by model and firmware.
 
 ## Build from source
 
