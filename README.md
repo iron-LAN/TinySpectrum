@@ -132,7 +132,7 @@ TinySpectrum exposes the manual RBWs supported by tinySA Ultra firmware:
 
 `200 Hz` · `1 kHz` · `3 kHz` · `10 kHz` · `30 kHz` · `100 kHz` · `300 kHz` · `600 kHz` · `850 kHz`
 
-The `2.4.0` beta selects the scan ceiling from the model information returned at connection time: 6 GHz for ZS405/ZS406 and 7.3 GHz for ZS407. It applies the documented 3–600 kHz RBW and 290-point limits when it detects a tinySA Basic. Hardware capabilities and calibrated ranges can differ by model and firmware.
+The `2.4.0` beta enables Ultra mode when it detects an Ultra-family device, then selects the scan ceiling from the model information returned at connection time: 6 GHz for ZS405/ZS406 and 7.3 GHz for ZS407. It applies the documented 3–600 kHz RBW and 290-point limits when it detects a tinySA Basic. Hardware capabilities and calibrated ranges can differ by model and firmware.
 
 ## Build from source
 

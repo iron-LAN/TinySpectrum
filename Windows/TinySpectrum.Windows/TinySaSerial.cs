@@ -32,6 +32,7 @@ public sealed class TinySaSerial : IDisposable
         _port = port;
         try { Profile = TinySaProfile.FromInfo(await CommandAsync("info", TimeSpan.FromSeconds(3), cancellationToken)); }
         catch { Profile = TinySaProfile.Regular; }
+        if (Profile.IsUltra) await CommandAsync("ultra on", TimeSpan.FromSeconds(3), cancellationToken);
     }
 
     public Task DisconnectAsync()

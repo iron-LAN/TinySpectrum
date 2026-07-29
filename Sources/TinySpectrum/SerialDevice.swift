@@ -57,6 +57,10 @@ actor TinySASerial {
             try write("info\r\n")
             profile = .from(info: try await readResponse(timeout: 3))
         } catch { profile = .regular }
+        if profile.isUltra {
+            try write("ultra on\r\n")
+            _ = try await readResponse(timeout: 3)
+        }
         return profile
     }
 
