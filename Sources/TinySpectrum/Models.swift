@@ -102,13 +102,17 @@ enum RBW: String, CaseIterable, Identifiable {
 
 struct TinySAProfile: Equatable {
     let isUltra: Bool
-    var name: String { isUltra ? "tinySA Ultra" : "tinySA Basic" }
+    let name: String
+    let maximumHz: Double
     var maximumPoints: Int { isUltra ? 450 : 290 }
-    var maximumHz: Double { isUltra ? 5_300_000_000 : 960_000_000 }
-    static let regular = TinySAProfile(isUltra: false)
-    static let ultra = TinySAProfile(isUltra: true)
+    static let regular = TinySAProfile(isUltra: false, name: "tinySA Basic", maximumHz: 960_000_000)
+    static let ultra = TinySAProfile(isUltra: true, name: "tinySA Ultra ZS405", maximumHz: 6_000_000_000)
+    static let ultraPlusZS406 = TinySAProfile(isUltra: true, name: "tinySA Ultra+ ZS406", maximumHz: 6_000_000_000)
+    static let ultraPlusZS407 = TinySAProfile(isUltra: true, name: "tinySA Ultra+ ZS407", maximumHz: 7_300_000_000)
     static func from(info: String) -> TinySAProfile {
         let text = info.lowercased()
+        if text.contains("zs407") || text.contains("v0.5.3") { return .ultraPlusZS407 }
+        if text.contains("zs406") || text.contains("v0.4.6") || text.contains("ultra+") { return .ultraPlusZS406 }
         return text.contains("ultra") || text.contains("tinysa4") ? .ultra : .regular
     }
     func supports(_ rbw: RBW) -> Bool { isUltra || (3_000...600_000).contains(rbw.bandwidthHz) }

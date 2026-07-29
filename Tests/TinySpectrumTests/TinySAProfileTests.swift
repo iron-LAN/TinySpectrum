@@ -17,7 +17,11 @@ final class TinySAProfileTests: XCTestCase {
         let ultra = TinySAProfile.from(info: "tinySA4 Ultra")
         XCTAssertTrue(ultra.isUltra)
         XCTAssertEqual(ultra.maximumPoints, 450)
-        XCTAssertNil(try ultra.inputMode(startHz: 100_000, stopHz: 5_300_000_000))
+        XCTAssertEqual(ultra.maximumHz, 6_000_000_000)
+        XCTAssertNil(try ultra.inputMode(startHz: 100_000, stopHz: 6_000_000_000))
         XCTAssertTrue(ultra.supports(.hz200))
+        let zs407 = TinySAProfile.from(info: "tinySA Ultra+ HW V0.5.3 ZS407")
+        XCTAssertEqual(zs407.name, "tinySA Ultra+ ZS407")
+        XCTAssertEqual(zs407.maximumHz, 7_300_000_000)
     }
 }

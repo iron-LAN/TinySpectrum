@@ -12,10 +12,16 @@ public sealed record ScanCapture(DateTimeOffset Date, List<ScanPoint> Points);
 public sealed record TinySaProfile(bool IsUltra, string Name, int MaximumPoints, double MaximumHz)
 {
     public static TinySaProfile Regular { get; } = new(false, "tinySA Basic", 290, 960_000_000);
-    public static TinySaProfile Ultra { get; } = new(true, "tinySA Ultra", 450, 5_300_000_000);
-    public static TinySaProfile FromInfo(string info) =>
-        info.Contains("ultra", StringComparison.OrdinalIgnoreCase) || info.Contains("tinySA4", StringComparison.OrdinalIgnoreCase)
-            ? Ultra : Regular;
+    public static TinySaProfile Ultra { get; } = new(true, "tinySA Ultra ZS405", 450, 6_000_000_000);
+    public static TinySaProfile UltraPlusZs406 { get; } = new(true, "tinySA Ultra+ ZS406", 450, 6_000_000_000);
+    public static TinySaProfile UltraPlusZs407 { get; } = new(true, "tinySA Ultra+ ZS407", 450, 7_300_000_000);
+    public static TinySaProfile FromInfo(string info)
+    {
+        if (info.Contains("ZS407", StringComparison.OrdinalIgnoreCase) || info.Contains("V0.5.3", StringComparison.OrdinalIgnoreCase)) return UltraPlusZs407;
+        if (info.Contains("ZS406", StringComparison.OrdinalIgnoreCase) || info.Contains("V0.4.6", StringComparison.OrdinalIgnoreCase)
+            || info.Contains("Ultra+", StringComparison.OrdinalIgnoreCase)) return UltraPlusZs406;
+        return info.Contains("ultra", StringComparison.OrdinalIgnoreCase) || info.Contains("tinySA4", StringComparison.OrdinalIgnoreCase) ? Ultra : Regular;
+    }
     public bool Supports(RbwOption rbw) => IsUltra || rbw.BandwidthHz is >= 3_000 and <= 600_000;
     public string? InputMode(double startHz, double stopHz)
     {

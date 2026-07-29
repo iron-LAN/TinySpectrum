@@ -24,8 +24,12 @@ public sealed class CoreTests
         var ultra = TinySaProfile.FromInfo("tinySA4 Ultra");
         Assert.True(ultra.IsUltra);
         Assert.Equal(450, ultra.MaximumPoints);
-        Assert.Null(ultra.InputMode(100_000, 5_300_000_000));
+        Assert.Equal(6_000_000_000, ultra.MaximumHz);
+        Assert.Null(ultra.InputMode(100_000, 6_000_000_000));
         Assert.True(ultra.Supports(RbwOption.All[0]));
+        var zs407 = TinySaProfile.FromInfo("tinySA Ultra+ HW V0.5.3 ZS407");
+        Assert.Equal("tinySA Ultra+ ZS407", zs407.Name);
+        Assert.Equal(7_300_000_000, zs407.MaximumHz);
     }
 
     [Fact]

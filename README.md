@@ -19,8 +19,8 @@ TinySpectrum turns a tinySA Ultra into a focused desktop scanning tool. It conne
 | Device | Status | Notes |
 | --- | --- | --- |
 | tinySA Ultra ZS405 | **Confirmed working** | Tested with the current stable macOS and Windows releases. |
-| tinySA Basic | **Beta testing** | Initial compatibility is available in [`v2.4.0-beta.2`](https://github.com/iron-LAN/TinySpectrum/releases/tag/v2.4.0-beta.2), but has not yet been confirmed on enough physical devices. |
-| tinySA Ultra+ | **Not yet verified** | It may work through the Ultra-compatible command set, but it is not currently claimed as tested or supported. |
+| tinySA Basic | **Beta testing** | Initial compatibility is available in [`v2.4.0-beta.3`](https://github.com/iron-LAN/TinySpectrum/releases/tag/v2.4.0-beta.3), but has not yet been confirmed on enough physical devices. |
+| tinySA Ultra+ | **Beta testing** | The `2.4.0` beta detects ZS406/ZS407 hardware and applies its reported model range, but physical-device verification is still in progress. |
 
 At present, the tinySA Ultra ZS405 is the only model known and confirmed to work. If you test the `2.4.0` beta with a tinySA Basic, please include the device model, firmware version, operating system, selected range, and input connector when reporting the result.
 
@@ -132,7 +132,7 @@ TinySpectrum exposes the manual RBWs supported by tinySA Ultra firmware:
 
 `200 Hz` · `1 kHz` · `3 kHz` · `10 kHz` · `30 kHz` · `100 kHz` · `300 kHz` · `600 kHz` · `850 kHz`
 
-The ZS405 range is conservatively limited to 5.3 GHz. The `2.4.0` beta applies the documented 3–600 kHz RBW and 290-point limits when it detects a tinySA Basic. Hardware capabilities and calibrated ranges can differ by model and firmware.
+The `2.4.0` beta selects the scan ceiling from the model information returned at connection time: 6 GHz for ZS405/ZS406 and 7.3 GHz for ZS407. It applies the documented 3–600 kHz RBW and 290-point limits when it detects a tinySA Basic. Hardware capabilities and calibrated ranges can differ by model and firmware.
 
 ## Build from source
 

@@ -12,7 +12,7 @@ final class AppModel: ObservableObject {
     @Published var status = "Connect a TinySA Ultra to begin"
     @Published var startHz = 100_000.0
     @Published var stopHz = 800_000_000.0
-    @Published var maxHz = 5_300_000_000.0
+    @Published var maxHz = 6_000_000_000.0
     @Published var rbw: RBW = .khz30
     @Published var scanInterval: ScanInterval = .minute1
     @Published var intervalProgress: Double?

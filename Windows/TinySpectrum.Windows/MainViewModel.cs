@@ -226,8 +226,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             Status = "Enter valid start and stop frequencies in MHz";
             return;
         }
-        StartMhz = Math.Clamp(start, .1, 5299.999);
-        StopMhz = Math.Clamp(stop, StartMhz + .001, 5300);
+        var maximumMhz = _serial.Profile.MaximumHz / 1e6;
+        StartMhz = Math.Clamp(start, .1, maximumMhz - .001);
+        StopMhz = Math.Clamp(stop, StartMhz + .001, maximumMhz);
         StartMhzInput = FormatMhz(StartMhz); StopMhzInput = FormatMhz(StopMhz);
         RangeChanged();
         try
