@@ -82,7 +82,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           PRERELEASE=""
-          if [[ "$GITHUB_REF_NAME" == *-beta.* ]]; then PRERELEASE="--prerelease"; fi
+          if [[ "$GITHUB_REF_NAME" == *-beta.* ]]; then PRERELEASE="--prerelease --draft"; fi
           gh release create "$GITHUB_REF_NAME" \
             release/* \
             --repo "$GITHUB_REPOSITORY" \

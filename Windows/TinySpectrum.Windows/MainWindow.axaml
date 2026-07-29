@@ -111,11 +111,12 @@
     </Grid>
 
     <Border Grid.Row="1" Background="#101A24" BorderBrush="#294153" BorderThickness="0,1,0,0" Padding="15,8">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="9">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="9">
         <Ellipse Width="7" Height="7" Fill="{Binding ConnectionColor}" VerticalAlignment="Center"/>
-        <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="#9DB0BE"/>
-        <TextBlock Grid.Column="2" Text="{Binding BatteryText}" Foreground="#9DB0BE" FontFamily="Consolas"/>
-        <Button Grid.Column="3" Content="Check for Updates…" Click="CheckUpdates_Click" Classes="link"/>
+        <TextBlock Grid.Column="1" Text="{Binding ConnectionText}" Foreground="#C9D7E1" FontWeight="SemiBold"/>
+        <TextBlock Grid.Column="2" Text="{Binding Status}" Foreground="#9DB0BE"/>
+        <TextBlock Grid.Column="3" Text="{Binding BatteryText}" Foreground="#9DB0BE" FontFamily="Consolas"/>
+        <Button Grid.Column="4" Content="Check for Updates…" Click="CheckUpdates_Click" Classes="link"/>
       </Grid>
     </Border>
   </Grid>

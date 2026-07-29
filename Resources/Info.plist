@@ -7,8 +7,8 @@
   <key>CFBundleDisplayName</key><string>TinySpectrum</string>
   <key>CFBundleIconFile</key><string>TinySpectrum</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>2.4.0-beta.3</string>
-  <key>CFBundleVersion</key><string>23</string>
+  <key>CFBundleShortVersionString</key><string>2.4.0-beta.4</string>
+  <key>CFBundleVersion</key><string>24</string>
   <key>SUFeedURL</key><string>https://raw.githubusercontent.com/iron-LAN/TinySpectrum/main/appcast.xml</string>
   <key>SUPublicEDKey</key><string>RXqzAX4L+qA/1kd7o2rBQoiE6eyjHUwJp2j+T1+7lnM=</string>
   <key>SUEnableAutomaticChecks</key><true/>
