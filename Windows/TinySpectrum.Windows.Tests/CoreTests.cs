@@ -171,6 +171,7 @@ public sealed class CoreTests
         var date = new DateTimeOffset(2026, 7, 26, 18, 30, 0, TimeSpan.FromHours(2));
         Assert.Equal("26-07-26_Ziggo-Dome-Amsterdam_", ExportFileName.BaseName(date, "Ziggo Dome, Amsterdam"));
         Assert.Equal("26-07-26_UnknownLocation_", ExportFileName.BaseName(date, null));
+        Assert.Equal("Main-Stage-Evening", ExportFileName.BaseName(date, "Ignored", "Main Stage / Evening"));
     }
 
     private static ScanCapture Capture(DateTimeOffset date, params double[] levels) => new(date,

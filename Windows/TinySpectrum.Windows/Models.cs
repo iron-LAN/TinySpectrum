@@ -47,11 +47,28 @@ public sealed class SpectrumScan : INotifyPropertyChanged
     public string Rbw { get; init; } = "30 kHz";
     public List<ScanPoint> Points { get; set; } = [];
     public List<ScanCapture>? Captures { get; set; }
+    private string? _customName;
+    public string? CustomName
+    {
+        get => _customName;
+        set
+        {
+            var normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            if (_customName == normalized) return;
+            _customName = normalized;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Title));
+            OnPropertyChanged(nameof(DetailsLabel));
+        }
+    }
     [JsonIgnore] public bool IsContinuous => Captures is not null;
     [JsonIgnore] public int CaptureCount => Captures?.Count ?? 1;
     [JsonIgnore] public string CaptureLabel => IsContinuous ? $"⌚ {CaptureCount} scans" : "";
-    [JsonIgnore] public string Title => $"{FrequencyText.Short(StartHz)} – {FrequencyText.Short(StopHz)}";
-    [JsonIgnore] public string DetailsLabel => $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}  •  {Rbw}";
+    [JsonIgnore] public string RangeTitle => $"{FrequencyText.Short(StartHz)} – {FrequencyText.Short(StopHz)}";
+    [JsonIgnore] public string Title => CustomName ?? RangeTitle;
+    [JsonIgnore] public string DetailsLabel => CustomName is null
+        ? $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}  •  {Rbw}"
+        : $"{RangeTitle}  •  {Date.LocalDateTime:dd MMM yyyy, HH:mm}  •  {Rbw}";
     private string _displayColor = ScanPalette.Colors[0];
     [JsonIgnore]
     public string DisplayColor
@@ -259,8 +276,9 @@ public static class FrequencyAxis
 
 public static class ExportFileName
 {
-    public static string BaseName(DateTimeOffset date, string? location)
+    public static string BaseName(DateTimeOffset date, string? location, string? customName = null)
     {
+        if (!string.IsNullOrWhiteSpace(customName)) return SafePart(customName);
         var safeLocation = SafePart(string.IsNullOrWhiteSpace(location) ? "UnknownLocation" : location);
         return $"{date.LocalDateTime:dd-MM-yy}_{safeLocation}_";
     }

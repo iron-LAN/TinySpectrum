@@ -10,6 +10,9 @@ struct ContentView: View {
     @State private var draftStartMHz = 0.1
     @State private var draftStopMHz = 800.0
     @State private var peakHoldEnabled = false
+    @State private var scanToRename: SpectrumScan?
+    @State private var renameText = ""
+    @State private var showingDeleteAllConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,6 +48,17 @@ struct ContentView: View {
         .onAppear { syncDraftRange() }
         .onChange(of: model.startHz) { _ in model.frequencyRangeDidChange() }
         .onChange(of: model.stopHz) { _ in model.frequencyRangeDidChange() }
+        .sheet(item: $scanToRename) { scan in
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Rename scan").font(.title2.bold())
+                TextField("Scan name", text: $renameText).textFieldStyle(.roundedBorder)
+                HStack { Spacer(); Button("Cancel") { scanToRename = nil }; Button("Save") { model.renameScan(scan, to: renameText); scanToRename = nil }.keyboardShortcut(.defaultAction) }
+            }.padding(24).frame(width: 400)
+        }
+        .confirmationDialog("Delete all scans?", isPresented: $showingDeleteAllConfirmation, titleVisibility: .visible) {
+            Button("Delete All Scans", role: .destructive) { model.deleteAllScans() }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("This permanently removes every saved scan from the browser.") }
     }
 
     private var appBackground: some View {
@@ -209,6 +223,7 @@ struct ContentView: View {
                 Spacer()
                 Text("\(model.selectedScanIDs.count) VISIBLE").font(.caption2).foregroundStyle(.secondary)
                 Button { model.selectedScanIDs = [] } label: { Text("Clear").font(.caption) }.buttonStyle(.plain)
+                Button("Delete All", role: .destructive) { showingDeleteAllConfirmation = true }.font(.caption).buttonStyle(.plain).disabled(model.scans.isEmpty)
             }
             if model.scans.isEmpty {
                 VStack(spacing: 8) {
@@ -228,7 +243,10 @@ struct ContentView: View {
                         Circle().fill(Palette.color(index, scheme: colorScheme)).frame(width: 9, height: 9)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(scan.title).fontWeight(.medium).lineLimit(1)
-                            Text("\(scan.date.formatted(date: .abbreviated, time: .shortened))  •  \(scan.rbw)").font(.caption2).foregroundStyle(.secondary)
+                            Text(scan.customName == nil
+                                ? "\(scan.date.formatted(date: .abbreviated, time: .shortened))  •  \(scan.rbw)"
+                                : "\(scan.rangeTitle)  •  \(scan.date.formatted(date: .abbreviated, time: .shortened))  •  \(scan.rbw)")
+                                .font(.caption2).foregroundStyle(.secondary)
                             if scan.isContinuous {
                                 Label("\(scan.captureCount) scans", systemImage: "clock.arrow.circlepath").font(.caption2.bold()).foregroundStyle(.purple)
                             }
@@ -246,6 +264,8 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Export to Shure Wireless Workbench")
                         .help("Export this scan to Wireless Workbench")
+                        Button { renameText = scan.customName ?? ""; scanToRename = scan } label: { Image(systemName: "pencil").foregroundStyle(.secondary) }
+                            .buttonStyle(.plain).help("Rename scan")
                         Button { model.deleteScan(scan) } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
                             .buttonStyle(.plain).help("Delete scan")
                     }.contentShape(Rectangle()).onTapGesture { model.toggleScanVisibility(scan) }
@@ -261,7 +281,7 @@ struct ContentView: View {
         }
         let points = scan.points(atCaptureIndex: model.timelineCaptureIndex)
         let csv = points.map { String(format: "%.6f,%.2f", $0.frequency / 1e6, $0.level) }.joined(separator: "\n") + "\n"
-        let filename = ExportFilename.baseName(date: scan.date, location: model.currentCity) + ".csv"
+        let filename = ExportFilename.baseName(date: scan.date, location: model.currentCity, customName: scan.customName) + ".csv"
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.commaSeparatedText]
         panel.canCreateDirectories = true
@@ -278,7 +298,7 @@ struct ContentView: View {
     }
 
     private func exportTimelineToWWB(_ scan: SpectrumScan) {
-        let baseName = ExportFilename.baseName(date: scan.date, location: model.currentCity)
+        let baseName = ExportFilename.baseName(date: scan.date, location: model.currentCity, customName: scan.customName)
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "sdb3") ?? .data]
         panel.canCreateDirectories = true

@@ -117,7 +117,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             await _serial.ConnectAsync(SelectedPort);
             OnPropertyChanged(nameof(RbwOptions));
             if (!_serial.Profile.Supports(SelectedRbw)) SelectedRbw = RbwOptions.First(x => x.BandwidthHz == 30_000);
-            IsConnected = true; _lastBatteryPoll = DateTimeOffset.MinValue; _connectionRetryAfter = DateTimeOffset.MinValue; Status = "TinySA connected";
+            IsConnected = true; _lastBatteryPoll = DateTimeOffset.MinValue; _connectionRetryAfter = DateTimeOffset.MinValue; Status = "connected";
         }
         catch { await MarkDisconnectedAsync(); }
         finally { _connectInFlight = false; }
@@ -195,6 +195,16 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void DeleteScan(SpectrumScan scan)
     {
         Scans.Remove(scan); RefreshScanColors(); Save(); NotifySpectrum();
+    }
+
+    public void DeleteAllScans()
+    {
+        Scans.Clear(); TimelineIndex = 0; Save(); NotifySpectrum();
+    }
+
+    public void RenameScan(SpectrumScan scan, string? name)
+    {
+        scan.CustomName = name; Save();
     }
 
     private void ShowScan(SpectrumScan scan)

@@ -1,7 +1,10 @@
 import Foundation
 
 enum ExportFilename {
-    static func baseName(date: Date, location: String?, timeZone: TimeZone = .current) -> String {
+    static func baseName(date: Date, location: String?, customName: String? = nil, timeZone: TimeZone = .current) -> String {
+        if let customName, !customName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return safePart(customName)
+        }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.calendar = Calendar(identifier: .gregorian)

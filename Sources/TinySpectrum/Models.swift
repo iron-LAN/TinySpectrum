@@ -16,7 +16,12 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
     let rbw: String
     var points: [ScanPoint]
     var captures: [ScanCapture]?
-    var title: String { "\(Self.short(startHz)) – \(Self.short(stopHz))" }
+    var customName: String? = nil
+    var rangeTitle: String { "\(Self.short(startHz)) – \(Self.short(stopHz))" }
+    var title: String {
+        let trimmed = customName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? rangeTitle : trimmed
+    }
     var captureCount: Int { captures?.count ?? 1 }
     var isContinuous: Bool { captures != nil }
     var peakHoldPoints: [ScanPoint] { peakHoldPoints(atCaptureIndex: nil) }

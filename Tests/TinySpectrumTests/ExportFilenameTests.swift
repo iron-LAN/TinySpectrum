@@ -19,4 +19,9 @@ final class ExportFilenameTests: XCTestCase {
             "26-07-26_UnknownLocation_"
         )
     }
+
+    func testCustomScanNameOverridesGeneratedFilenameAndIsSanitized() throws {
+        let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-07-26T18:30:00Z"))
+        XCTAssertEqual(ExportFilename.baseName(date: date, location: "Ignored", customName: "Main Stage / Evening"), "Main-Stage-Evening")
+    }
 }

@@ -233,6 +233,13 @@ final class AppModel: ObservableObject {
     }
     func deleteScan(_ scan: SpectrumScan) { selectedScanIDs.remove(scan.id); scans.removeAll { $0.id == scan.id }; save() }
     func deleteScans(at offsets: IndexSet) { offsets.map { scans[$0].id }.forEach { selectedScanIDs.remove($0) }; scans.remove(atOffsets: offsets); save() }
+    func deleteAllScans() { selectedScanIDs.removeAll(); scans.removeAll(); timelineCaptureIndex = nil; save() }
+    func renameScan(_ scan: SpectrumScan, to name: String) {
+        guard let index = scans.firstIndex(where: { $0.id == scan.id }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        scans[index].customName = trimmed.isEmpty ? nil : trimmed
+        save()
+    }
 
     func setTimelinePosition(_ position: Double) {
         timelinePosition = min(1, max(0, position))

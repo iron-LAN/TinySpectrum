@@ -75,16 +75,17 @@
 
       <Border Grid.Column="2" Background="#101820" BorderBrush="#294153" BorderThickness="1" CornerRadius="10" Padding="14">
         <Grid RowDefinitions="Auto,*">
-          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10" ColumnSpacing="8">
             <TextBlock Text="SCAN BROWSER" Classes="sectionTitle"/>
             <TextBlock Grid.Column="1" Text="{Binding VisibleCount, StringFormat={}{0} VISIBLE}" Margin="0,0,12,0" Foreground="#7890A2" FontSize="10" FontWeight="Bold"/>
             <Button Grid.Column="2" Content="Clear" Command="{Binding ClearCommand}" Classes="link"/>
+            <Button Grid.Column="3" Content="Delete All" Click="DeleteAll_Click" Classes="link"/>
           </Grid>
           <ListBox Grid.Row="1" ItemsSource="{Binding Scans}" Background="Transparent" BorderThickness="0">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:SpectrumScan">
                 <Border BorderBrush="#263845" BorderThickness="0,0,0,1" Padding="3,11">
-                  <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
+                  <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                     <Ellipse Width="9" Height="9" Fill="{Binding DisplayColor}" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Spacing="3">
                       <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
@@ -98,7 +99,8 @@
                       </Grid>
                     </Button>
                     <Button Grid.Column="3" Content="WWB" Tag="{Binding .}" Click="Export_Click" Classes="wwb"/>
-                    <Button Grid.Column="4" Tag="{Binding .}" Click="Delete_Click" Classes="scanDelete">
+                    <Button Grid.Column="4" Content="Rename" Tag="{Binding .}" Click="Rename_Click" Classes="link" FontSize="10"/>
+                    <Button Grid.Column="5" Tag="{Binding .}" Click="Delete_Click" Classes="scanDelete">
                       <PathIcon Width="14" Height="14" Data="M6,19 C6,20.1 6.9,21 8,21 L16,21 C17.1,21 18,20.1 18,19 L18,7 L6,7 Z M8,9 L16,9 L16,19 L8,19 Z M15.5,4 L14.5,3 L9.5,3 L8.5,4 L5,4 L5,6 L19,6 L19,4 Z"/>
                     </Button>
                   </Grid>
