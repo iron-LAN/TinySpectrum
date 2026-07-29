@@ -45,7 +45,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public AsyncCommand ContinuousCommand { get; }
     public RelayCommand StopCommand { get; }
     public AsyncCommand SetRangeCommand { get; }
-    public RelayCommand SavePresetCommand { get; }
+    public AsyncCommand SavePresetCommand { get; }
     public RelayCommand ClearCommand { get; }
 
     public MainViewModel()
@@ -59,7 +59,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ContinuousCommand = new(() => BeginScanAsync(true), () => CanScan);
         StopCommand = new(Stop, () => IsScanning);
         SetRangeCommand = new(SetRangeAsync, () => !IsScanning);
-        SavePresetCommand = new(SavePreset, () => !string.IsNullOrWhiteSpace(PresetName));
+        SavePresetCommand = new(SavePresetAsync, () => !string.IsNullOrWhiteSpace(PresetName) && !IsScanning);
         ClearCommand = new(() => { foreach (var scan in Scans) scan.IsVisible = false; NotifySpectrum(); });
 
         _ = RefreshPortsAsync();
@@ -70,16 +70,16 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public string? SelectedPort { get => _selectedPort; set => Set(ref _selectedPort, value); }
     public string ExportLocation { get => _exportLocation; set => Set(ref _exportLocation, value); }
-    public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); OnPropertyChanged(nameof(ConnectionColor)); } }
-    public string ConnectionText => IsConnected ? _serial.Profile.Name.ToUpperInvariant() : "LOOKING FOR TINYSA";
+    public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(FooterText)); OnPropertyChanged(nameof(ConnectionColor)); } }
+    public string FooterText => IsConnected ? $"{_serial.Profile.Name} {Status}" : Status;
     public string ConnectionColor => IsConnected ? "#32E38A" : "#7890A2";
     public string BatteryText => _batteryMillivolts is { } millivolts
         ? $"~{BatteryPercent(millivolts)}%  •  {millivolts / 1000.0:0.00} V"
         : "";
     public bool IsScanning { get => _isScanning; private set { Set(ref _isScanning, value); RaiseCommands(); } }
     public bool CanScan => IsConnected && !IsScanning;
-    public string PresetName { get => _presetName; set { if (Set(ref _presetName, value)) SavePresetCommand.RaiseCanExecuteChanged(); } }
-    public string Status { get => _status; private set => Set(ref _status, value); }
+    public string PresetName { get => _presetName; set { if (Set(ref _presetName, value)) SavePresetCommand.Raise(); } }
+    public string Status { get => _status; private set { if (Set(ref _status, value)) OnPropertyChanged(nameof(FooterText)); } }
     public void SetStatus(string status) => Status = status;
     public double StartMhz { get => _startMhz; set { if (Set(ref _startMhz, Math.Max(.1, value))) RangeChanged(); } }
     public double StopMhz { get => _stopMhz; set { if (Set(ref _stopMhz, Math.Max(StartMhz + .001, value))) RangeChanged(); } }
@@ -260,10 +260,16 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         for (var index = 0; index < Scans.Count; index++) Scans[index].DisplayColor = ScanPalette.At(index);
     }
 
-    private void SavePreset()
+    private async Task SavePresetAsync()
     {
         var name = PresetName.Trim();
         if (name.Length == 0) return;
+        if (!TryParseMhz(StartMhzInput, out _) || !TryParseMhz(StopMhzInput, out _))
+        {
+            Status = "Enter valid start and stop frequencies in MHz";
+            return;
+        }
+        await SetRangeAsync();
         Presets.Add(new(name, StartMhz * 1e6, StopMhz * 1e6));
         PresetName = "";
         Save();
@@ -349,7 +355,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(VisibleCount)); OnPropertyChanged("Spectrum");
     }
     private void Save() => _store.Save(Scans, Presets);
-    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); SetRangeCommand.Raise(); }
+    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); SetRangeCommand.Raise(); SavePresetCommand.Raise(); }
     private static string DurationText(double duration)
     {
         var seconds = Math.Max(1, (int)Math.Round(duration));
