@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 
 namespace TinySpectrum.Windows;
@@ -41,7 +42,7 @@ public sealed class SpectrumControl : Control
     {
         base.Render(context);
         var plot = PlotRect;
-        context.DrawRectangle(new SolidColorBrush(Color.Parse("#07131C")), new Pen(new SolidColorBrush(Color.Parse("#224054")), 1), plot);
+        context.DrawRectangle(new SolidColorBrush(ThemeColor("#07131C", "#F8FCFD")), new Pen(new SolidColorBrush(ThemeColor("#224054", "#AFCBD5")), 1), plot);
 
         var visible = VisibleScans;
         var full = FullRange(visible);
@@ -55,7 +56,7 @@ public sealed class SpectrumControl : Control
 
         if (visible.Length == 0)
         {
-            DrawTextCentered(context, "Select a scan or start a new one", plot.Center, 15, "#718292");
+            DrawTextCentered(context, "Select a scan or start a new one", plot.Center, 15, ThemeHex("#718292", "#456572"));
             return;
         }
 
@@ -79,7 +80,7 @@ public sealed class SpectrumControl : Control
         }
 
         DrawHoverReadout(context, plot);
-        DrawText(context, "Scroll to zoom  •  drag to pan", new Point(plot.Right - 178, plot.Top + 8), 10, "#617789");
+        DrawText(context, "Scroll to zoom  •  drag to pan", new Point(plot.Right - 178, plot.Top + 8), 10, ThemeHex("#617789", "#456572"));
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
@@ -207,9 +208,9 @@ public sealed class SpectrumControl : Control
         return new(x, y);
     }
 
-    private static void DrawGrid(DrawingContext context, Rect plot)
+    private void DrawGrid(DrawingContext context, Rect plot)
     {
-        var pen = new Pen(new SolidColorBrush(Color.Parse("#213643")), 1);
+        var pen = new Pen(new SolidColorBrush(ThemeColor("#213643", "#D4E3E8")), 1);
         for (var index = 0; index <= 10; index++)
         {
             var x = plot.X + plot.Width * index / 10;
@@ -219,12 +220,12 @@ public sealed class SpectrumControl : Control
         {
             var y = plot.Y + plot.Height * index / 5;
             context.DrawLine(pen, new(plot.X, y), new(plot.Right, y));
-            DrawText(context, $"{-20 - index * 20}", new(12, y - 8), 11, "#8497A6");
+            DrawText(context, $"{-20 - index * 20}", new(12, y - 8), 11, ThemeHex("#8497A6", "#456572"));
         }
-        DrawText(context, "dBm", new(12, plot.Top - 22), 11, "#8497A6");
+        DrawText(context, "dBm", new(12, plot.Top - 22), 11, ThemeHex("#8497A6", "#456572"));
     }
 
-    private static void DrawAxis(DrawingContext context, Rect plot, (double Start, double Stop) range, bool hasData)
+    private void DrawAxis(DrawingContext context, Rect plot, (double Start, double Stop) range, bool hasData)
     {
         if (!hasData) return;
         var step = FrequencyAxis.TickStep(range.Start, range.Stop, plot.Width);
@@ -235,7 +236,7 @@ public sealed class SpectrumControl : Control
             var x = plot.X + (value - range.Start) / (range.Stop - range.Start) * plot.Width;
             var text = FrequencyAxis.Label(value, step);
             var alignment = index == 0 ? TextAlignment.Left : index == values.Count - 1 ? TextAlignment.Right : TextAlignment.Center;
-            DrawTextAligned(context, text, new(x, plot.Bottom + 12), 11, "#8497A6", alignment);
+            DrawTextAligned(context, text, new(x, plot.Bottom + 12), 11, ThemeHex("#8497A6", "#456572"), alignment);
         }
     }
 
@@ -243,7 +244,7 @@ public sealed class SpectrumControl : Control
     {
         if (_hover is not { } hover) return;
         var readout = new Rect(plot.Center.X - 142, plot.Top + 5, 284, 30);
-        context.DrawRectangle(new SolidColorBrush(Color.Parse("#DD17232D")), new Pen(new SolidColorBrush(hover.Color), 1),
+        context.DrawRectangle(new SolidColorBrush(ThemeColor("#DD17232D", "#F2FFFFFF")), new Pen(new SolidColorBrush(hover.Color), 1),
             new RoundedRect(readout, 15));
         var icon = new StreamGeometry();
         using (var drawing = icon.Open())
@@ -259,9 +260,12 @@ public sealed class SpectrumControl : Control
         context.DrawGeometry(null, new Pen(new SolidColorBrush(Color.Parse("#19D9FF")), 1.6), icon);
         var frequency = string.Create(CultureInfo.InvariantCulture, $"{hover.Point.Frequency / 1e6:F3} MHz");
         var level = string.Create(CultureInfo.InvariantCulture, $"{hover.Point.Level:F2} dBm");
-        DrawText(context, frequency, new(readout.X + 50, readout.Y + 7), 12, "#F4FAFF");
-        DrawText(context, level, new(readout.X + 184, readout.Y + 7), 12, "#F4FAFF");
+        DrawText(context, frequency, new(readout.X + 50, readout.Y + 7), 12, ThemeHex("#F4FAFF", "#102A35"));
+        DrawText(context, level, new(readout.X + 184, readout.Y + 7), 12, ThemeHex("#F4FAFF", "#102A35"));
     }
+
+    private string ThemeHex(string dark, string light) => ActualThemeVariant == ThemeVariant.Light ? light : dark;
+    private Color ThemeColor(string dark, string light) => Color.Parse(ThemeHex(dark, light));
 
     private static void DrawText(DrawingContext context, string text, Point point, double size, string color) =>
         context.DrawText(Format(text, size, color), point);

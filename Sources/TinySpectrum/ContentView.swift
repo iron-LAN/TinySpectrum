@@ -71,8 +71,11 @@ struct ContentView: View {
         )
     }
 
+    private var panelBackground: Color { colorScheme == .dark ? Color(red: 0.055, green: 0.10, blue: 0.14) : .white }
+    private var panelBorder: Color { colorScheme == .dark ? Color(red: 0.16, green: 0.26, blue: 0.33) : Color(red: 0.69, green: 0.80, blue: 0.84) }
+
     private var centerPanel: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             HStack {
                 Text("SPECTRUM").font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
@@ -86,14 +89,19 @@ struct ContentView: View {
                 .disabled(!model.scans.contains { model.selectedScanIDs.contains($0.id) && $0.isContinuous })
                 .help("Overlay the highest level captured at each frequency in red")
             }
-            .padding(.horizontal, 20).padding(.top, 16)
-            .overlay(alignment: .bottom) { Rectangle().fill(.cyan.opacity(0.45)).frame(height: 1).padding(.horizontal, 20) }
+            .padding(12)
+            .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
             SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, peakHoldEnabled: peakHoldEnabled)
                 .frame(minHeight: 300, maxHeight: .infinity)
                 .layoutPriority(1)
-                .padding(.horizontal, 8)
-            controls.padding(20).background(.ultraThinMaterial)
+                .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
+            controls.padding(14)
+                .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
         }
+        .padding(14)
     }
 
     private var timelinePanel: some View {
@@ -109,7 +117,9 @@ struct ContentView: View {
             }
         }
         .padding(.vertical, 16)
-        .background(.ultraThinMaterial)
+        .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
+        .padding(.vertical, 14)
         .help("Timeline — top is the newest capture")
     }
 
@@ -126,8 +136,10 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     ForEach(model.presets) { preset in
                         HStack(spacing: 0) {
-                            Button(preset.name) { model.apply(preset); syncDraftRange() }
-                                .buttonStyle(.borderless).padding(.leading, 10).padding(.vertical, 6)
+                            Button { model.apply(preset); syncDraftRange() } label: {
+                                Text(preset.name).foregroundStyle(colorScheme == .light ? Color(red: 0.09, green: 0.23, blue: 0.29) : .primary)
+                            }
+                            .buttonStyle(.borderless).padding(.leading, 10).padding(.vertical, 6)
                             Button { model.deletePreset(preset) } label: {
                                 Image(systemName: "trash").font(.caption2).foregroundStyle(.secondary).padding(7)
                             }.buttonStyle(.plain).help("Delete \(preset.name)")
@@ -271,7 +283,10 @@ struct ContentView: View {
                     }.contentShape(Rectangle()).onTapGesture { model.toggleScanVisibility(scan) }
                 }.onDelete(perform: model.deleteScans) }.listStyle(.inset)
             }
-        }.padding(16).background(.ultraThinMaterial)
+        }.padding(16)
+            .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
+            .padding(.vertical, 14).padding(.trailing, 14)
     }
 
     private func exportScanToWWB(_ scan: SpectrumScan) {

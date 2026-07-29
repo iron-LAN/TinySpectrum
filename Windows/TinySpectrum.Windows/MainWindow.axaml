@@ -5,7 +5,7 @@
         x:DataType="local:MainViewModel"
         Title="TinySpectrum" Width="1440" Height="900" MinWidth="1120" MinHeight="720"
         Icon="avares://TinySpectrum/Assets/TinySpectrum.ico"
-        Background="#071019" RequestedThemeVariant="Dark">
+        Background="{DynamicResource AppBackground}">
   <Grid RowDefinitions="*,Auto">
     <Grid ColumnDefinitions="*,64,310" Margin="14" ColumnSpacing="10">
       <Grid RowDefinitions="Auto,*,Auto">
@@ -16,7 +16,7 @@
                           IsChecked="{Binding PeakHoldEnabled}" IsEnabled="{Binding HasVisibleContinuous}"/>
           </Grid>
         </Border>
-        <Border Grid.Row="1" Background="#07131C" BorderBrush="#254457" BorderThickness="1" CornerRadius="10">
+        <Border Grid.Row="1" Background="{DynamicResource GraphBackground}" BorderBrush="{DynamicResource GraphBorder}" BorderThickness="1" CornerRadius="10">
           <local:SpectrumControl DataContext="{Binding}"/>
         </Border>
         <Border Grid.Row="2" Classes="controlCard" Margin="0,10,0,0">
@@ -25,7 +25,7 @@
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="local:ScanPreset">
-                  <Border Background="#142633" BorderBrush="#2D4A5D" BorderThickness="1" CornerRadius="7" Margin="0,0,8,0">
+                  <Border Background="{DynamicResource ChipBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal" Spacing="0">
                       <Button Content="{Binding Name}" Tag="{Binding .}" Click="Preset_Click" Classes="chipName"/>
                       <Button Tag="{Binding .}" Click="DeletePreset_Click" Classes="presetDelete">
@@ -54,7 +54,7 @@
                 <ComboBox ItemsSource="{Binding RbwOptions}" SelectedItem="{Binding SelectedRbw}"/>
                 <ComboBox Grid.Column="1" ItemsSource="{Binding IntervalOptions}" SelectedItem="{Binding SelectedInterval}"/>
                 <TextBlock Grid.Column="2" Text="{Binding EstimatedSweepText}" VerticalAlignment="Center" HorizontalAlignment="Right"
-                           Foreground="#8297A7" FontFamily="Consolas" Margin="0,0,7,0"/>
+                           Foreground="{DynamicResource SecondaryText}" FontFamily="Consolas" Margin="0,0,7,0"/>
               </Grid>
               <local:CountdownControl Grid.Column="4" Width="42" Height="42"
                                       Progress="{Binding IntervalProgress}" RemainingText="{Binding CountdownText}"
@@ -64,32 +64,32 @@
         </Border>
       </Grid>
 
-      <Border Grid.Column="1" Background="#0C1721" BorderBrush="#254052" BorderThickness="1" CornerRadius="10" Padding="8">
+      <Border Grid.Column="1" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="10" Padding="8">
         <Grid RowDefinitions="Auto,*,Auto">
           <TextBlock Text="TIME" Classes="sectionTitle" HorizontalAlignment="Center"/>
           <Slider Grid.Row="1" Orientation="Vertical" Minimum="0" Maximum="{Binding TimelineMaximum}" Value="{Binding TimelineIndex}"
                   HorizontalAlignment="Center" Margin="0,12"/>
-          <TextBlock Grid.Row="2" Text="{Binding TimelineIndex}" FontSize="10" Foreground="#8297A7" HorizontalAlignment="Center"/>
+          <TextBlock Grid.Row="2" Text="{Binding TimelineIndex}" FontSize="10" Foreground="{DynamicResource SecondaryText}" HorizontalAlignment="Center"/>
         </Grid>
       </Border>
 
-      <Border Grid.Column="2" Background="#101820" BorderBrush="#294153" BorderThickness="1" CornerRadius="10" Padding="14">
+      <Border Grid.Column="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="10" Padding="14">
         <Grid RowDefinitions="Auto,*">
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10" ColumnSpacing="8">
             <TextBlock Text="SCAN BROWSER" Classes="sectionTitle"/>
-            <TextBlock Grid.Column="1" Text="{Binding VisibleCount, StringFormat={}{0} VISIBLE}" Margin="0,0,12,0" Foreground="#7890A2" FontSize="10" FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="{Binding VisibleCount, StringFormat={}{0} VISIBLE}" Margin="0,0,12,0" Foreground="{DynamicResource SecondaryText}" FontSize="10" FontWeight="Bold"/>
             <Button Grid.Column="2" Content="Clear" Command="{Binding ClearCommand}" Classes="link"/>
             <Button Grid.Column="3" Content="Delete All" Click="DeleteAll_Click" Classes="link"/>
           </Grid>
           <ListBox Grid.Row="1" ItemsSource="{Binding Scans}" Background="Transparent" BorderThickness="0">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:SpectrumScan">
-                <Border BorderBrush="#263845" BorderThickness="0,0,0,1" Padding="3,11">
+                <Border BorderBrush="{DynamicResource RowBorder}" BorderThickness="0,0,0,1" Padding="3,11">
                   <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                     <Ellipse Width="9" Height="9" Fill="{Binding DisplayColor}" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Spacing="3">
                       <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                      <TextBlock Text="{Binding DetailsLabel}" FontSize="10" Foreground="#8297A7" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding DetailsLabel}" FontSize="10" Foreground="{DynamicResource SecondaryText}" TextWrapping="Wrap"/>
                       <TextBlock Text="{Binding CaptureLabel}" FontSize="10" Foreground="#BE7BFF"/>
                     </StackPanel>
                     <Button Grid.Column="2" Tag="{Binding .}" Click="Visibility_Click" Classes="scanSelector">
@@ -114,12 +114,13 @@
       </Border>
     </Grid>
 
-    <Border Grid.Row="1" Background="#101A24" BorderBrush="#294153" BorderThickness="0,1,0,0" Padding="15,8">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="9">
+    <Border Grid.Row="1" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="15,8">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="9">
         <Ellipse Width="7" Height="7" Fill="{Binding ConnectionColor}" VerticalAlignment="Center"/>
-        <TextBlock Grid.Column="1" Text="{Binding FooterText}" Foreground="#9DB0BE" VerticalAlignment="Center"/>
-        <TextBlock Grid.Column="2" Text="{Binding BatteryText}" Foreground="#9DB0BE" FontFamily="Consolas" VerticalAlignment="Center"/>
-        <Button Grid.Column="3" Content="Check for Updates…" Click="CheckUpdates_Click" Classes="link" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Text="{Binding FooterText}" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="2" Text="{Binding BatteryText}" Foreground="{DynamicResource SecondaryText}" FontFamily="Consolas" VerticalAlignment="Center"/>
+        <Button x:Name="ThemeButton" Grid.Column="3" Click="Theme_Click" Classes="link" VerticalAlignment="Center"/>
+        <Button Grid.Column="4" Content="Check for Updates…" Click="CheckUpdates_Click" Classes="link" VerticalAlignment="Center"/>
       </Grid>
     </Border>
   </Grid>

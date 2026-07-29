@@ -15,8 +15,11 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new MainViewModel();
         Closed += (_, _) => ViewModel.Dispose();
-        Opened += async (_, _) => await CheckForUpdatesAsync(false);
+        Opened += async (_, _) => { UpdateThemeButton(); await CheckForUpdatesAsync(false); };
     }
+
+    private void Theme_Click(object? sender, RoutedEventArgs e) { App.ToggleTheme(); UpdateThemeButton(); }
+    private void UpdateThemeButton() => ThemeButton.Content = App.IsDark ? "☀  Light" : "☾  Dark";
 
     private void Preset_Click(object? sender, RoutedEventArgs e)
     {
