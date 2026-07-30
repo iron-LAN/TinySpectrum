@@ -30,7 +30,9 @@ struct SpectrumView: View {
             let plot = plotRect(geo.size)
             let bounds = dataBounds
             Canvas { context, _ in
-                let plotBackground = colorScheme == .dark ? Color(red: 0.025, green: 0.055, blue: 0.075) : Color(red: 0.94, green: 0.97, blue: 0.98)
+                let plotBackground = colorScheme == .dark
+                    ? Color(red: 7 / 255, green: 19 / 255, blue: 28 / 255)
+                    : Color(red: 248 / 255, green: 252 / 255, blue: 253 / 255)
                 context.fill(Path(roundedRect: plot, cornerRadius: 8), with: .color(plotBackground))
                 drawGrid(context: context, plot: plot)
                 labels(context: context, plot: plot, bounds: bounds)

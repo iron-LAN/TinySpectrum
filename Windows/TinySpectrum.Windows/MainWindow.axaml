@@ -9,7 +9,7 @@
   <Grid RowDefinitions="*,Auto">
     <Grid ColumnDefinitions="*,64,310" Margin="14" ColumnSpacing="10">
       <Grid RowDefinitions="Auto,*,Auto">
-        <Border Classes="sectionHeader">
+        <Border Classes="controlCard" Padding="12" Margin="0,0,0,10">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Text="SPECTRUM" Classes="sectionTitle"/>
             <ToggleButton Grid.Column="1" Content="〰  PEAK HOLD" Classes="peakHold"
@@ -66,10 +66,10 @@
 
       <Border Grid.Column="1" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="10" Padding="8">
         <Grid RowDefinitions="Auto,*,Auto">
-          <TextBlock Text="TIME" Classes="sectionTitle" HorizontalAlignment="Center"/>
+          <TextBlock Text="NOW" Classes="sectionTitle" HorizontalAlignment="Center"/>
           <Slider Grid.Row="1" Orientation="Vertical" Minimum="0" Maximum="{Binding TimelineMaximum}" Value="{Binding TimelineIndex}"
                   HorizontalAlignment="Center" Margin="0,12"/>
-          <TextBlock Grid.Row="2" Text="{Binding TimelineIndex}" FontSize="10" Foreground="{DynamicResource SecondaryText}" HorizontalAlignment="Center"/>
+          <TextBlock Grid.Row="2" Text="{Binding TimelineOldestText}" FontSize="10" Foreground="{DynamicResource SecondaryText}" FontFamily="Consolas" HorizontalAlignment="Center"/>
         </Grid>
       </Border>
 
@@ -115,12 +115,13 @@
     </Grid>
 
     <Border Grid.Row="1" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="15,8">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="9">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="9">
         <Ellipse Width="7" Height="7" Fill="{Binding ConnectionColor}" VerticalAlignment="Center"/>
         <TextBlock Grid.Column="1" Text="{Binding FooterText}" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center"/>
         <TextBlock Grid.Column="2" Text="{Binding BatteryText}" Foreground="{DynamicResource SecondaryText}" FontFamily="Consolas" VerticalAlignment="Center"/>
-        <Button x:Name="ThemeButton" Grid.Column="3" Click="Theme_Click" Classes="link" VerticalAlignment="Center"/>
-        <Button Grid.Column="4" Content="Check for Updates…" Click="CheckUpdates_Click" Classes="link" VerticalAlignment="Center"/>
+        <Border Grid.Column="3" Width="1" Height="14" Background="{DynamicResource PanelBorder}" VerticalAlignment="Center"/>
+        <Button x:Name="ThemeButton" Grid.Column="4" Click="Theme_Click" Classes="link" VerticalAlignment="Center"/>
+        <Button Grid.Column="5" Content="Check for Updates…" Click="CheckUpdates_Click" Classes="link" VerticalAlignment="Center"/>
       </Grid>
     </Border>
   </Grid>

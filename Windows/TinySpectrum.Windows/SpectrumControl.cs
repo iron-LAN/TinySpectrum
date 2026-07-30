@@ -20,6 +20,7 @@ public sealed class SpectrumControl : Control
     public SpectrumControl()
     {
         DataContextChanged += (_, _) => AttachViewModel();
+        ActualThemeVariantChanged += (_, _) => InvalidateVisual();
         ClipToBounds = true;
     }
 

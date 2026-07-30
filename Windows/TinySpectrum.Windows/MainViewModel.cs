@@ -104,6 +104,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public int TimelineIndex { get => _timelineIndex; set { if (Set(ref _timelineIndex, Math.Max(0, value))) NotifySpectrum(); } }
     public int TimelineMaximum => Math.Max(0, VisibleContinuous?.CaptureCount - 1 ?? 0);
     public SpectrumScan? VisibleContinuous => Scans.FirstOrDefault(x => x.IsContinuous && x.IsVisible);
+    public SpectrumScan? TimelineScan => VisibleContinuous ?? Scans.FirstOrDefault(x => x.IsVisible);
+    public string TimelineOldestText => TimelineScan is { } scan
+        ? (scan.Captures?.FirstOrDefault()?.Date ?? scan.Date).LocalDateTime.ToString("HH:mm")
+        : "—";
     public bool HasVisibleContinuous => VisibleContinuous is not null;
     public int VisibleCount => Scans.Count(x => x.IsVisible);
 
@@ -351,7 +355,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     private void NotifySpectrum()
     {
-        OnPropertyChanged(nameof(VisibleContinuous)); OnPropertyChanged(nameof(HasVisibleContinuous)); OnPropertyChanged(nameof(TimelineMaximum));
+        OnPropertyChanged(nameof(VisibleContinuous)); OnPropertyChanged(nameof(TimelineScan)); OnPropertyChanged(nameof(TimelineOldestText)); OnPropertyChanged(nameof(HasVisibleContinuous)); OnPropertyChanged(nameof(TimelineMaximum));
         OnPropertyChanged(nameof(VisibleCount)); OnPropertyChanged("Spectrum");
     }
     private void Save() => _store.Save(Scans, Presets);

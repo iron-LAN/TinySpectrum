@@ -19,7 +19,7 @@ struct ContentView: View {
             HSplitView {
                 centerPanel.frame(minWidth: 560, maxHeight: .infinity, alignment: .top)
                 timelinePanel.frame(width: 62).frame(maxHeight: .infinity, alignment: .top)
-                scanPanel.frame(minWidth: 250, idealWidth: 280, maxWidth: 340, maxHeight: .infinity, alignment: .top)
+                scanPanel.padding(.leading, 8).frame(minWidth: 258, idealWidth: 288, maxWidth: 348, maxHeight: .infinity, alignment: .top)
             }
             .frame(maxHeight: .infinity, alignment: .top)
             Divider()
@@ -71,7 +71,7 @@ struct ContentView: View {
         )
     }
 
-    private var panelBackground: Color { colorScheme == .dark ? Color(red: 0.055, green: 0.10, blue: 0.14) : .white }
+    private var panelBackground: Color { colorScheme == .dark ? Color(red: 16 / 255, green: 26 / 255, blue: 36 / 255) : .white }
     private var panelBorder: Color { colorScheme == .dark ? Color(red: 0.16, green: 0.26, blue: 0.33) : Color(red: 0.69, green: 0.80, blue: 0.84) }
 
     private var centerPanel: some View {
@@ -131,7 +131,6 @@ struct ContentView: View {
 
     private var controls: some View {
         VStack(spacing: 14) {
-            FrequencyRangeControl(startHz: $model.startHz, stopHz: $model.stopHz, bounds: 100_000...model.maxHz)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(model.presets) { preset in
