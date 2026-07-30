@@ -21,6 +21,7 @@ struct ContentView: View {
                 timelinePanel.frame(width: 64).frame(maxHeight: .infinity, alignment: .top)
                 scanPanel.frame(minWidth: 250, idealWidth: 280, maxWidth: 340, maxHeight: .infinity, alignment: .top)
             }
+            .padding(14)
             .frame(maxHeight: .infinity, alignment: .top)
             Divider()
             HStack {
@@ -102,7 +103,6 @@ struct ContentView: View {
                 .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
         }
-        .padding(14)
     }
 
     private var timelinePanel: some View {
@@ -120,7 +120,6 @@ struct ContentView: View {
         .padding(.vertical, 16)
         .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
-        .padding(.vertical, 14)
         .help("Timeline — top is the newest capture")
     }
 
@@ -289,7 +288,6 @@ struct ContentView: View {
         }.padding(16)
             .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
-            .padding(.vertical, 14).padding(.trailing, 14)
     }
 
     private func exportScanToWWB(_ scan: SpectrumScan) {
