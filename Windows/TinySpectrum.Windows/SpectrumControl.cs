@@ -185,8 +185,7 @@ public sealed class SpectrumControl : Control
 
     private Color TraceColor(SpectrumScan scan)
     {
-        var index = _viewModel?.Scans.IndexOf(scan) ?? 0;
-        return Color.Parse(ScanPalette.At(index));
+        return Color.Parse(scan.DisplayColor);
     }
 
     private static void DrawTrace(DrawingContext context, IReadOnlyList<ScanPoint> points, Rect plot,

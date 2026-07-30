@@ -34,8 +34,15 @@ public sealed record TinySaProfile(bool IsUltra, string Name, int MaximumPoints,
 
 public static class ScanPalette
 {
-    public static readonly string[] Colors = ["#19D9FF", "#FF8C24", "#B05CFF", "#32E38A", "#FF4D9D", "#F5D62E"];
-    public static string At(int index) => Colors[Math.Max(0, index) % Colors.Length];
+    public static readonly string[] Colors =
+    ["#19D9FF", "#FF8C24", "#B05CFF", "#32E38A", "#FF4D9D", "#F5D62E", "#5E8BFF", "#25E6C8", "#FF5B5B", "#A8E063", "#FF74E8", "#66C2FF"];
+    public static readonly string[] LightModeColors =
+    ["#007A99", "#B84A00", "#6B2AA6", "#087A45", "#A80D55", "#8A6A00", "#264FA8", "#00766A", "#B32626", "#4F7A12", "#8A2C87", "#286A91"];
+    public static string At(int index, bool lightMode = false)
+    {
+        var colors = lightMode ? LightModeColors : Colors;
+        return colors[Math.Max(0, index) % colors.Length];
+    }
 }
 
 public sealed class SpectrumScan : INotifyPropertyChanged

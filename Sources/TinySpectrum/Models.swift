@@ -183,31 +183,38 @@ enum SweepEstimator {
 }
 
 enum Palette {
-    private static let darkColors: [Color] = [
-        Color(red: 0.10, green: 0.86, blue: 1.00),
-        Color(red: 1.00, green: 0.55, blue: 0.14),
-        Color(red: 0.72, green: 0.34, blue: 1.00),
-        Color(red: 0.20, green: 0.95, blue: 0.55),
-        Color(red: 1.00, green: 0.25, blue: 0.67),
-        Color(red: 0.98, green: 0.86, blue: 0.18),
-        Color(red: 0.25, green: 0.48, blue: 1.00),
-        Color(red: 0.15, green: 0.90, blue: 0.78),
-        Color(red: 1.00, green: 0.28, blue: 0.30)
+    // Keep these values and their order aligned with Windows ScanPalette.
+    private static let darkModeColors: [Color] = [
+        Color(red: 0x19 / 255, green: 0xD9 / 255, blue: 0xFF / 255),
+        Color(red: 0xFF / 255, green: 0x8C / 255, blue: 0x24 / 255),
+        Color(red: 0xB0 / 255, green: 0x5C / 255, blue: 0xFF / 255),
+        Color(red: 0x32 / 255, green: 0xE3 / 255, blue: 0x8A / 255),
+        Color(red: 0xFF / 255, green: 0x4D / 255, blue: 0x9D / 255),
+        Color(red: 0xF5 / 255, green: 0xD6 / 255, blue: 0x2E / 255),
+        Color(red: 0x5E / 255, green: 0x8B / 255, blue: 0xFF / 255),
+        Color(red: 0x25 / 255, green: 0xE6 / 255, blue: 0xC8 / 255),
+        Color(red: 0xFF / 255, green: 0x5B / 255, blue: 0x5B / 255),
+        Color(red: 0xA8 / 255, green: 0xE0 / 255, blue: 0x63 / 255),
+        Color(red: 0xFF / 255, green: 0x74 / 255, blue: 0xE8 / 255),
+        Color(red: 0x66 / 255, green: 0xC2 / 255, blue: 0xFF / 255)
     ]
-    private static let lightColors: [Color] = [
-        Color(red: 0.00, green: 0.42, blue: 0.58),
-        Color(red: 0.72, green: 0.29, blue: 0.00),
-        Color(red: 0.43, green: 0.12, blue: 0.68),
-        Color(red: 0.00, green: 0.48, blue: 0.23),
-        Color(red: 0.68, green: 0.05, blue: 0.38),
-        Color(red: 0.58, green: 0.46, blue: 0.00),
-        Color(red: 0.08, green: 0.25, blue: 0.68),
-        Color(red: 0.00, green: 0.48, blue: 0.40),
-        Color(red: 0.72, green: 0.08, blue: 0.10)
+    private static let lightModeColors: [Color] = [
+        Color(red: 0x00 / 255, green: 0x7A / 255, blue: 0x99 / 255),
+        Color(red: 0xB8 / 255, green: 0x4A / 255, blue: 0x00 / 255),
+        Color(red: 0x6B / 255, green: 0x2A / 255, blue: 0xA6 / 255),
+        Color(red: 0x08 / 255, green: 0x7A / 255, blue: 0x45 / 255),
+        Color(red: 0xA8 / 255, green: 0x0D / 255, blue: 0x55 / 255),
+        Color(red: 0x8A / 255, green: 0x6A / 255, blue: 0x00 / 255),
+        Color(red: 0x26 / 255, green: 0x4F / 255, blue: 0xA8 / 255),
+        Color(red: 0x00 / 255, green: 0x76 / 255, blue: 0x6A / 255),
+        Color(red: 0xB3 / 255, green: 0x26 / 255, blue: 0x26 / 255),
+        Color(red: 0x4F / 255, green: 0x7A / 255, blue: 0x12 / 255),
+        Color(red: 0x8A / 255, green: 0x2C / 255, blue: 0x87 / 255),
+        Color(red: 0x28 / 255, green: 0x6A / 255, blue: 0x91 / 255)
     ]
-    static let count = darkColors.count
+    static let count = darkModeColors.count
     static func color(_ index: Int, scheme: ColorScheme) -> Color {
-        let colors = scheme == .dark ? darkColors : lightColors
+        let colors = scheme == .dark ? darkModeColors : lightModeColors
         return colors[index % colors.count]
     }
 }

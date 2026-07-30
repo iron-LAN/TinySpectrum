@@ -16,10 +16,10 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HSplitView {
+            HStack(spacing: 10) {
                 centerPanel.frame(minWidth: 560, maxHeight: .infinity, alignment: .top)
-                timelinePanel.frame(width: 62).frame(maxHeight: .infinity, alignment: .top)
-                scanPanel.padding(.leading, 8).frame(minWidth: 258, idealWidth: 288, maxWidth: 348, maxHeight: .infinity, alignment: .top)
+                timelinePanel.frame(width: 64).frame(maxHeight: .infinity, alignment: .top)
+                scanPanel.frame(minWidth: 250, idealWidth: 280, maxWidth: 340, maxHeight: .infinity, alignment: .top)
             }
             .frame(maxHeight: .infinity, alignment: .top)
             Divider()
@@ -61,17 +61,18 @@ struct ContentView: View {
         } message: { Text("This permanently removes every saved scan from the browser.") }
     }
 
-    private var appBackground: some View {
-        LinearGradient(
-            colors: colorScheme == .dark
-                ? [Color(red: 0.035, green: 0.065, blue: 0.085), Color(red: 0.07, green: 0.045, blue: 0.10)]
-                : [Color(red: 0.94, green: 0.98, blue: 0.99), Color(red: 0.97, green: 0.95, blue: 1.0)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+    private var appBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 7 / 255, green: 16 / 255, blue: 25 / 255)
+            : Color(red: 239 / 255, green: 248 / 255, blue: 250 / 255)
     }
 
     private var panelBackground: Color { colorScheme == .dark ? Color(red: 16 / 255, green: 26 / 255, blue: 36 / 255) : .white }
+    private var graphBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 7 / 255, green: 19 / 255, blue: 28 / 255)
+            : Color(red: 248 / 255, green: 252 / 255, blue: 253 / 255)
+    }
     private var panelBorder: Color { colorScheme == .dark ? Color(red: 0.16, green: 0.26, blue: 0.33) : Color(red: 0.69, green: 0.80, blue: 0.84) }
 
     private var centerPanel: some View {
@@ -95,7 +96,7 @@ struct ContentView: View {
             SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, peakHoldEnabled: peakHoldEnabled)
                 .frame(minHeight: 300, maxHeight: .infinity)
                 .layoutPriority(1)
-                .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+                .background(graphBackground, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
             controls.padding(14)
                 .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
@@ -280,7 +281,10 @@ struct ContentView: View {
                         Button { model.deleteScan(scan) } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
                             .buttonStyle(.plain).help("Delete scan")
                     }.contentShape(Rectangle()).onTapGesture { model.toggleScanVisibility(scan) }
-                }.onDelete(perform: model.deleteScans) }.listStyle(.inset)
+                }.onDelete(perform: model.deleteScans) }
+                    .listStyle(.inset)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
             }
         }.padding(16)
             .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))

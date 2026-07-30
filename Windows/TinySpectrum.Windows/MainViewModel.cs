@@ -261,8 +261,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void RefreshScanColors()
     {
-        for (var index = 0; index < Scans.Count; index++) Scans[index].DisplayColor = ScanPalette.At(index);
+        for (var index = 0; index < Scans.Count; index++) Scans[index].DisplayColor = ScanPalette.At(index, !App.IsDark);
     }
+
+    public void RefreshThemeColors() { RefreshScanColors(); NotifySpectrum(); }
 
     private async Task SavePresetAsync()
     {
