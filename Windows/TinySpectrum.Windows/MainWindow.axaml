@@ -81,15 +81,15 @@
             <Button Grid.Column="2" Content="Clear" Command="{Binding ClearCommand}" Classes="link"/>
             <Button Grid.Column="3" Content="Delete All" Click="DeleteAll_Click" Classes="link"/>
           </Grid>
-          <ListBox Grid.Row="1" ItemsSource="{Binding Scans}" Background="Transparent" BorderThickness="0">
+          <ListBox x:Name="ScanBrowser" Grid.Row="1" ItemsSource="{Binding Scans}" Background="Transparent" BorderThickness="0">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:SpectrumScan">
-                <Border BorderBrush="{DynamicResource RowBorder}" BorderThickness="0,0,0,1" Padding="3,11">
+                <Border BorderBrush="{DynamicResource RowBorder}" BorderThickness="0,0,0,1" Padding="3,6">
                   <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                     <Ellipse Width="9" Height="9" Fill="{Binding DisplayColor}" VerticalAlignment="Center"/>
-                    <StackPanel Grid.Column="1" Spacing="3">
-                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                      <TextBlock Text="{Binding DetailsLabel}" FontSize="10" Foreground="{DynamicResource SecondaryText}" TextWrapping="Wrap"/>
+                    <StackPanel Grid.Column="1" Spacing="2">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding DetailsLabel}" FontSize="10" Foreground="{DynamicResource SecondaryText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                       <TextBlock Text="{Binding CaptureLabel}" FontSize="10" Foreground="#BE7BFF"/>
                     </StackPanel>
                     <Button Grid.Column="2" Tag="{Binding .}" Click="Visibility_Click" Classes="scanSelector">

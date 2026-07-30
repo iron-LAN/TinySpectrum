@@ -184,5 +184,11 @@
       <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
+    <Style Selector="ListBox#ScanBrowser ListBoxItem">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
   </Application.Styles>
 </Application>
