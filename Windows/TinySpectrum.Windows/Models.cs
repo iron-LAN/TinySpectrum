@@ -65,7 +65,6 @@ public sealed class SpectrumScan : INotifyPropertyChanged
             _customName = normalized;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Title));
-            OnPropertyChanged(nameof(DetailsLabel));
         }
     }
     [JsonIgnore] public bool IsContinuous => Captures is not null;
@@ -73,9 +72,8 @@ public sealed class SpectrumScan : INotifyPropertyChanged
     [JsonIgnore] public string CaptureLabel => IsContinuous ? $"⌚ {CaptureCount} scans" : "";
     [JsonIgnore] public string RangeTitle => $"{FrequencyText.Short(StartHz)} – {FrequencyText.Short(StopHz)}";
     [JsonIgnore] public string Title => CustomName ?? RangeTitle;
-    [JsonIgnore] public string DetailsLabel => CustomName is null
-        ? $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}  •  {Rbw}"
-        : $"{RangeTitle}  •  {Date.LocalDateTime:dd MMM yyyy, HH:mm}  •  {Rbw}";
+    [JsonIgnore] public string DateLabel => $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}";
+    [JsonIgnore] public string ResolutionLabel => Rbw;
     private string _displayColor = ScanPalette.Colors[0];
     [JsonIgnore]
     public string DisplayColor

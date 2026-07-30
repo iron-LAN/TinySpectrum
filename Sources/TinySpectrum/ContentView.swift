@@ -254,9 +254,9 @@ struct ContentView: View {
                         Circle().fill(Palette.color(index, scheme: colorScheme)).frame(width: 9, height: 9)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(scan.title).fontWeight(.medium).lineLimit(1)
-                            Text(scan.customName == nil
-                                ? "\(scan.date.formatted(date: .abbreviated, time: .shortened))  •  \(scan.rbw)"
-                                : "\(scan.rangeTitle)  •  \(scan.date.formatted(date: .abbreviated, time: .shortened))  •  \(scan.rbw)")
+                            Text(scan.date.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption2).foregroundStyle(.secondary)
+                            Text(scan.rbw)
                                 .font(.caption2).foregroundStyle(.secondary)
                             if scan.isContinuous {
                                 Label("\(scan.captureCount) scans", systemImage: "clock.arrow.circlepath").font(.caption2.bold()).foregroundStyle(.purple)

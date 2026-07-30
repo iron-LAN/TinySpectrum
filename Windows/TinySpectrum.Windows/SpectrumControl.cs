@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -288,6 +289,48 @@ public sealed class SpectrumControl : Control
             new SolidColorBrush(Color.Parse(color)));
 
     private sealed record HoverSample(ScanPoint Point, Color Color, Point Location);
+}
+
+public sealed class TimelineControl : Control
+{
+    public static readonly StyledProperty<double> ValueProperty =
+        AvaloniaProperty.Register<TimelineControl, double>(nameof(Value), defaultBindingMode: BindingMode.TwoWay);
+    public static readonly StyledProperty<double> MaximumProperty =
+        AvaloniaProperty.Register<TimelineControl, double>(nameof(Maximum));
+
+    static TimelineControl() => AffectsRender<TimelineControl>(ValueProperty, MaximumProperty);
+    public double Value { get => GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
+    public double Maximum { get => GetValue(MaximumProperty); set => SetValue(MaximumProperty, value); }
+
+    public TimelineControl() => ActualThemeVariantChanged += (_, _) => InvalidateVisual();
+
+    public override void Render(DrawingContext context)
+    {
+        base.Render(context);
+        var top = 10d; var bottom = Math.Max(top + 1, Bounds.Height - 10); var height = bottom - top;
+        var x = Bounds.Width / 2; var fraction = Maximum <= 0 ? 1 : Math.Clamp(Value / Maximum, 0, 1);
+        var thumbY = bottom - fraction * height;
+        var track = new Rect(x - 3, top, 6, height);
+        context.DrawRectangle(new SolidColorBrush(Color.Parse(ActualThemeVariant == ThemeVariant.Light ? "#D4E3E8" : "#384A56")), null, new RoundedRect(track, 3));
+        var fill = new Rect(x - 3, thumbY, 6, Math.Max(1, bottom - thumbY));
+        context.DrawRectangle(new SolidColorBrush(Color.Parse("#19D9FF")), null, new RoundedRect(fill, 3));
+        for (var tick = 0; tick <= 8; tick++)
+        {
+            var y = top + tick / 8d * height; var width = tick % 4 == 0 ? 22 : 13;
+            context.DrawLine(new Pen(new SolidColorBrush(Color.Parse(ActualThemeVariant == ThemeVariant.Light ? "#78909B" : "#718491")), 1), new(x - width / 2, y), new(x + width / 2, y));
+        }
+        var thumbFill = new SolidColorBrush(Color.Parse(ActualThemeVariant == ThemeVariant.Light ? "#FFFFFF" : "#101A24"));
+        context.DrawEllipse(thumbFill, new Pen(new SolidColorBrush(Color.Parse("#19D9FF")), 3), new Point(x, thumbY), 11, 11);
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e) { base.OnPointerPressed(e); e.Pointer.Capture(this); UpdateValue(e.GetPosition(this).Y); }
+    protected override void OnPointerMoved(PointerEventArgs e) { base.OnPointerMoved(e); if (e.Pointer.Captured == this) UpdateValue(e.GetPosition(this).Y); }
+    protected override void OnPointerReleased(PointerReleasedEventArgs e) { UpdateValue(e.GetPosition(this).Y); e.Pointer.Capture(null); base.OnPointerReleased(e); }
+    private void UpdateValue(double y)
+    {
+        var top = 10d; var bottom = Math.Max(top + 1, Bounds.Height - 10);
+        SetCurrentValue(ValueProperty, Maximum <= 0 ? 0 : Math.Round(Math.Clamp((bottom - y) / (bottom - top), 0, 1) * Maximum));
+    }
 }
 
 public sealed class CountdownControl : Control

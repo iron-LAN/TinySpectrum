@@ -67,8 +67,8 @@
       <Border Grid.Column="1" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="10" Padding="8">
         <Grid RowDefinitions="Auto,*,Auto">
           <TextBlock Text="NOW" Classes="sectionTitle" HorizontalAlignment="Center"/>
-          <Slider Grid.Row="1" Orientation="Vertical" Minimum="0" Maximum="{Binding TimelineMaximum}" Value="{Binding TimelineIndex}"
-                  HorizontalAlignment="Center" Margin="0,12"/>
+          <local:TimelineControl Grid.Row="1" Maximum="{Binding TimelineMaximum}" Value="{Binding TimelineIndex}"
+                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0,12"/>
           <TextBlock Grid.Row="2" Text="{Binding TimelineOldestText}" FontSize="10" Foreground="{DynamicResource SecondaryText}" FontFamily="Consolas" HorizontalAlignment="Center"/>
         </Grid>
       </Border>
@@ -76,7 +76,10 @@
       <Border Grid.Column="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="10" Padding="14">
         <Grid RowDefinitions="Auto,*">
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10" ColumnSpacing="8">
-            <TextBlock Text="SCAN BROWSER" Classes="sectionTitle"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <PathIcon Width="13" Height="13" Foreground="{DynamicResource SecondaryText}" Data="M12,2 L2,7 L12,12 L22,7 Z M2,12 L12,17 L22,12 M2,17 L12,22 L22,17"/>
+              <TextBlock Text="SCAN BROWSER" Classes="sectionTitle"/>
+            </StackPanel>
             <TextBlock Grid.Column="1" Text="{Binding VisibleCount, StringFormat={}{0} VISIBLE}" Margin="0,0,12,0" Foreground="{DynamicResource SecondaryText}" FontSize="10" FontWeight="Bold"/>
             <Button Grid.Column="2" Content="Clear" Command="{Binding ClearCommand}" Classes="link"/>
             <Button Grid.Column="3" Content="Delete All" Click="DeleteAll_Click" Classes="link"/>
@@ -89,7 +92,8 @@
                     <Ellipse Width="9" Height="9" Fill="{Binding DisplayColor}" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Spacing="2">
                       <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                      <TextBlock Text="{Binding DetailsLabel}" FontSize="10" Foreground="{DynamicResource SecondaryText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding DateLabel}" FontSize="10" Foreground="{DynamicResource SecondaryText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding ResolutionLabel}" FontSize="10" Foreground="{DynamicResource SecondaryText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                       <TextBlock Text="{Binding CaptureLabel}" FontSize="10" Foreground="#BE7BFF"/>
                     </StackPanel>
                     <Button Grid.Column="2" Tag="{Binding .}" Click="Visibility_Click" Classes="scanSelector">
