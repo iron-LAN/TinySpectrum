@@ -21,12 +21,16 @@ public sealed class UpdateService
         _client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
     }
 
-    public Version CurrentVersion => Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0);
+    public Version CurrentVersion => NormalizeVersion(Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0));
     public bool CurrentIsPrerelease =>
         (Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "").Contains('-');
 
-    public static bool IsUpdateAvailable(Version current, bool currentIsPrerelease, Version release) =>
-        release > current || release == current && currentIsPrerelease;
+    public static bool IsUpdateAvailable(Version current, bool currentIsPrerelease, Version release)
+    {
+        current = NormalizeVersion(current);
+        release = NormalizeVersion(release);
+        return release > current || release == current && currentIsPrerelease;
+    }
 
     public async Task<AppUpdate?> CheckAsync(CancellationToken cancellationToken = default)
     {
@@ -129,8 +133,19 @@ try {
 }
 """;
 
-    private static bool TryVersion(string tag, out Version version) =>
-        Version.TryParse(tag.TrimStart('v', 'V').Split('-', 2)[0], out version!);
+    private static bool TryVersion(string tag, out Version version)
+    {
+        if (!Version.TryParse(tag.TrimStart('v', 'V').Split('-', 2)[0], out var parsed))
+        {
+            version = new Version(0, 0, 0);
+            return false;
+        }
+        version = NormalizeVersion(parsed);
+        return true;
+    }
+
+    private static Version NormalizeVersion(Version version) =>
+        new(version.Major, version.Minor, Math.Max(0, version.Build));
 
     private sealed record GitHubRelease(
         [property: JsonPropertyName("tag_name")] string TagName,
