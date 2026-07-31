@@ -67,14 +67,7 @@ public sealed class UpdateService
         var targetPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         var executablePath = Environment.ProcessPath ?? Path.Combine(targetPath, "TinySpectrum.exe");
         var scriptPath = Path.Combine(updateRoot, "install-update.ps1");
-        File.WriteAllText(scriptPath, """
-param([int]$ProcessId, [string]$Source, [string]$Target, [string]$Executable)
-$ErrorActionPreference = 'Stop'
-Wait-Process -Id $ProcessId -ErrorAction SilentlyContinue
-Start-Sleep -Milliseconds 400
-Get-ChildItem -LiteralPath $Source | Copy-Item -Destination $Target -Recurse -Force
-Start-Process -FilePath $Executable
-""");
+        File.WriteAllText(scriptPath, InstallerScript);
 
         var installer = new ProcessStartInfo("powershell.exe")
         {
@@ -85,12 +78,56 @@ Start-Process -FilePath $Executable
         foreach (var argument in new[]
                  {
                      "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", scriptPath,
-                     "-ProcessId", Environment.ProcessId.ToString(), "-Source", payloadPath, "-Target", targetPath,
+                     "-ParentProcessId", Environment.ProcessId.ToString(), "-Source", payloadPath, "-Target", targetPath,
                      "-Executable", executablePath
                  }) installer.ArgumentList.Add(argument);
-        Process.Start(installer);
+        var process = Process.Start(installer) ?? throw new InvalidOperationException("Windows could not start the TinySpectrum updater.");
+        await Task.Delay(500, cancellationToken);
+        if (process.HasExited)
+            throw new InvalidOperationException($"The TinySpectrum updater stopped before installation (exit code {process.ExitCode}).");
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime) lifetime.Shutdown();
     }
+
+    public const string InstallerScript = """
+param([int]$ParentProcessId, [string]$Source, [string]$Target, [string]$Executable)
+$ErrorActionPreference = 'Stop'
+$log = Join-Path ([IO.Path]::GetTempPath()) 'TinySpectrum-update.log'
+
+try {
+    "$(Get-Date -Format o) Starting update from '$Source' to '$Target'." | Set-Content -LiteralPath $log
+    Wait-Process -Id $ParentProcessId -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 750
+
+    if (-not (Test-Path -LiteralPath $Source -PathType Container)) { throw "The downloaded update payload is missing." }
+    if (-not (Test-Path -LiteralPath $Target -PathType Container)) { throw "The TinySpectrum installation folder is missing." }
+
+    $newExecutable = Get-ChildItem -LiteralPath $Source -Filter 'TinySpectrum.exe' -File -Recurse | Select-Object -First 1
+    if ($null -eq $newExecutable) { throw "The downloaded update does not contain TinySpectrum.exe." }
+    $payloadRoot = $newExecutable.Directory.FullName
+
+    $copied = $false
+    for ($attempt = 1; $attempt -le 15 -and -not $copied; $attempt++) {
+        try {
+            Get-ChildItem -LiteralPath $payloadRoot -Force | Copy-Item -Destination $Target -Recurse -Force -ErrorAction Stop
+            $copied = $true
+        } catch {
+            if ($attempt -eq 15) { throw }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+
+    $installedExecutable = Join-Path $Target 'TinySpectrum.exe'
+    if (-not (Test-Path -LiteralPath $installedExecutable -PathType Leaf)) { throw "TinySpectrum.exe was not installed." }
+    Unblock-File -LiteralPath $installedExecutable -ErrorAction SilentlyContinue
+    "$(Get-Date -Format o) Update installed successfully." | Add-Content -LiteralPath $log
+    Start-Process -FilePath $installedExecutable -WorkingDirectory $Target
+} catch {
+    "$(Get-Date -Format o) Update failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)" | Add-Content -LiteralPath $log
+    Add-Type -AssemblyName PresentationFramework
+    [System.Windows.MessageBox]::Show("TinySpectrum could not install the update.`n`n$($_.Exception.Message)`n`nDetails: $log", 'TinySpectrum Update') | Out-Null
+    exit 1
+}
+""";
 
     private static bool TryVersion(string tag, out Version version) =>
         Version.TryParse(tag.TrimStart('v', 'V').Split('-', 2)[0], out version!);
