@@ -77,6 +77,16 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void WindowsInstallerWaitsRetriesVerifiesAndReportsFailures()
+    {
+        var script = UpdateService.InstallerScript;
+        Assert.Contains("Wait-Process -Id $ParentProcessId", script);
+        Assert.Contains("$attempt -le 15", script);
+        Assert.Contains("TinySpectrum.exe was not installed", script);
+        Assert.Contains("Update failed", script);
+    }
+
+    [Fact]
     public void SweepEstimatorCouplesSpanResolutionAndInterval()
     {
         const double span = 700_000_000;
