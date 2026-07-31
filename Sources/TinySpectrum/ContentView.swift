@@ -10,14 +10,18 @@ struct ContentView: View {
     @State private var draftStartMHz = 0.1
     @State private var draftStopMHz = 800.0
     @State private var peakHoldEnabled = false
+    @State private var scanToRename: SpectrumScan?
+    @State private var renameText = ""
+    @State private var showingDeleteAllConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
-            HSplitView {
+            HStack(spacing: 10) {
                 centerPanel.frame(minWidth: 560, maxHeight: .infinity, alignment: .top)
-                timelinePanel.frame(width: 62).frame(maxHeight: .infinity, alignment: .top)
+                timelinePanel.frame(width: 64).frame(maxHeight: .infinity, alignment: .top)
                 scanPanel.frame(minWidth: 250, idealWidth: 280, maxWidth: 340, maxHeight: .infinity, alignment: .top)
             }
+            .padding(14)
             .frame(maxHeight: .infinity, alignment: .top)
             Divider()
             HStack {
@@ -45,20 +49,35 @@ struct ContentView: View {
         .onAppear { syncDraftRange() }
         .onChange(of: model.startHz) { _ in model.frequencyRangeDidChange() }
         .onChange(of: model.stopHz) { _ in model.frequencyRangeDidChange() }
+        .sheet(item: $scanToRename) { scan in
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Rename scan").font(.title2.bold())
+                TextField("Scan name", text: $renameText).textFieldStyle(.roundedBorder)
+                HStack { Spacer(); Button("Cancel") { scanToRename = nil }; Button("Save") { model.renameScan(scan, to: renameText); scanToRename = nil }.keyboardShortcut(.defaultAction) }
+            }.padding(24).frame(width: 400)
+        }
+        .confirmationDialog("Delete all scans?", isPresented: $showingDeleteAllConfirmation, titleVisibility: .visible) {
+            Button("Delete All Scans", role: .destructive) { model.deleteAllScans() }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("This permanently removes every saved scan from the browser.") }
     }
 
-    private var appBackground: some View {
-        LinearGradient(
-            colors: colorScheme == .dark
-                ? [Color(red: 0.035, green: 0.065, blue: 0.085), Color(red: 0.07, green: 0.045, blue: 0.10)]
-                : [Color(red: 0.94, green: 0.98, blue: 0.99), Color(red: 0.97, green: 0.95, blue: 1.0)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+    private var appBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 7 / 255, green: 16 / 255, blue: 25 / 255)
+            : Color(red: 239 / 255, green: 248 / 255, blue: 250 / 255)
     }
+
+    private var panelBackground: Color { colorScheme == .dark ? Color(red: 16 / 255, green: 26 / 255, blue: 36 / 255) : .white }
+    private var graphBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 7 / 255, green: 19 / 255, blue: 28 / 255)
+            : Color(red: 248 / 255, green: 252 / 255, blue: 253 / 255)
+    }
+    private var panelBorder: Color { colorScheme == .dark ? Color(red: 0.16, green: 0.26, blue: 0.33) : Color(red: 0.69, green: 0.80, blue: 0.84) }
 
     private var centerPanel: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             HStack {
                 Text("SPECTRUM").font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
@@ -72,13 +91,17 @@ struct ContentView: View {
                 .disabled(!model.scans.contains { model.selectedScanIDs.contains($0.id) && $0.isContinuous })
                 .help("Overlay the highest level captured at each frequency in red")
             }
-            .padding(.horizontal, 20).padding(.top, 16)
-            .overlay(alignment: .bottom) { Rectangle().fill(.cyan.opacity(0.45)).frame(height: 1).padding(.horizontal, 20) }
+            .padding(12)
+            .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
             SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, peakHoldEnabled: peakHoldEnabled)
                 .frame(minHeight: 300, maxHeight: .infinity)
                 .layoutPriority(1)
-                .padding(.horizontal, 8)
-            controls.padding(20).background(.ultraThinMaterial)
+                .background(graphBackground, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
+            controls.padding(14)
+                .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
         }
     }
 
@@ -95,7 +118,8 @@ struct ContentView: View {
             }
         }
         .padding(.vertical, 16)
-        .background(.ultraThinMaterial)
+        .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
         .help("Timeline — top is the newest capture")
     }
 
@@ -107,13 +131,14 @@ struct ContentView: View {
 
     private var controls: some View {
         VStack(spacing: 14) {
-            FrequencyRangeControl(startHz: $model.startHz, stopHz: $model.stopHz, bounds: 100_000...model.maxHz)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(model.presets) { preset in
                         HStack(spacing: 0) {
-                            Button(preset.name) { model.apply(preset); syncDraftRange() }
-                                .buttonStyle(.borderless).padding(.leading, 10).padding(.vertical, 6)
+                            Button { model.apply(preset); syncDraftRange() } label: {
+                                Text(preset.name).foregroundStyle(colorScheme == .light ? Color(red: 0.09, green: 0.23, blue: 0.29) : .primary)
+                            }
+                            .buttonStyle(.borderless).padding(.leading, 10).padding(.vertical, 6)
                             Button { model.deletePreset(preset) } label: {
                                 Image(systemName: "trash").font(.caption2).foregroundStyle(.secondary).padding(7)
                             }.buttonStyle(.plain).help("Delete \(preset.name)")
@@ -139,7 +164,7 @@ struct ContentView: View {
                 Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
                 Spacer()
                 Picker("Resolution", selection: Binding(get: { model.rbw }, set: { model.selectRBW($0) })) {
-                    ForEach(RBW.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(model.availableRBWs) { Text($0.rawValue).tag($0) }
                 }
                 .frame(width: 235)
                 .disabled(model.isScanning)
@@ -198,7 +223,7 @@ struct ContentView: View {
     private func applyDraftRange() {
         let start = max(100_000, min(draftStartMHz * 1e6, model.maxHz - 1))
         let stop = max(start + 1, min(draftStopMHz * 1e6, model.maxHz))
-        model.startHz = start; model.stopHz = stop
+        model.applyRange(startHz: start, stopHz: stop)
         draftStartMHz = start / 1e6; draftStopMHz = stop / 1e6
     }
 
@@ -209,6 +234,7 @@ struct ContentView: View {
                 Spacer()
                 Text("\(model.selectedScanIDs.count) VISIBLE").font(.caption2).foregroundStyle(.secondary)
                 Button { model.selectedScanIDs = [] } label: { Text("Clear").font(.caption) }.buttonStyle(.plain)
+                Button("Delete All", role: .destructive) { showingDeleteAllConfirmation = true }.font(.caption).buttonStyle(.plain).disabled(model.scans.isEmpty)
             }
             if model.scans.isEmpty {
                 VStack(spacing: 8) {
@@ -228,7 +254,10 @@ struct ContentView: View {
                         Circle().fill(Palette.color(index, scheme: colorScheme)).frame(width: 9, height: 9)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(scan.title).fontWeight(.medium).lineLimit(1)
-                            Text("\(scan.date.formatted(date: .abbreviated, time: .shortened))  •  \(scan.rbw)").font(.caption2).foregroundStyle(.secondary)
+                            Text(scan.date.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption2).foregroundStyle(.secondary)
+                            Text(scan.rbw)
+                                .font(.caption2).foregroundStyle(.secondary)
                             if scan.isContinuous {
                                 Label("\(scan.captureCount) scans", systemImage: "clock.arrow.circlepath").font(.caption2.bold()).foregroundStyle(.purple)
                             }
@@ -246,12 +275,19 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Export to Shure Wireless Workbench")
                         .help("Export this scan to Wireless Workbench")
+                        Button { renameText = scan.customName ?? ""; scanToRename = scan } label: { Image(systemName: "pencil").foregroundStyle(.secondary) }
+                            .buttonStyle(.plain).help("Rename scan")
                         Button { model.deleteScan(scan) } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
                             .buttonStyle(.plain).help("Delete scan")
                     }.contentShape(Rectangle()).onTapGesture { model.toggleScanVisibility(scan) }
-                }.onDelete(perform: model.deleteScans) }.listStyle(.inset)
+                }.onDelete(perform: model.deleteScans) }
+                    .listStyle(.inset)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
             }
-        }.padding(16).background(.ultraThinMaterial)
+        }.padding(16)
+            .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
     }
 
     private func exportScanToWWB(_ scan: SpectrumScan) {
@@ -261,7 +297,7 @@ struct ContentView: View {
         }
         let points = scan.points(atCaptureIndex: model.timelineCaptureIndex)
         let csv = points.map { String(format: "%.6f,%.2f", $0.frequency / 1e6, $0.level) }.joined(separator: "\n") + "\n"
-        let filename = ExportFilename.baseName(date: scan.date, location: model.currentCity) + ".csv"
+        let filename = ExportFilename.baseName(date: scan.date, location: model.currentCity, customName: scan.customName) + ".csv"
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.commaSeparatedText]
         panel.canCreateDirectories = true
@@ -278,7 +314,7 @@ struct ContentView: View {
     }
 
     private func exportTimelineToWWB(_ scan: SpectrumScan) {
-        let baseName = ExportFilename.baseName(date: scan.date, location: model.currentCity)
+        let baseName = ExportFilename.baseName(date: scan.date, location: model.currentCity, customName: scan.customName)
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "sdb3") ?? .data]
         panel.canCreateDirectories = true

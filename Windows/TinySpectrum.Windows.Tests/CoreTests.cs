@@ -6,6 +6,33 @@ namespace TinySpectrum.Windows.Tests;
 public sealed class CoreTests
 {
     [Fact]
+    public void RegularTinySaUsesBasicLimitsAndInputModes()
+    {
+        var basic = TinySaProfile.FromInfo("tinySA_v1.4");
+        Assert.False(basic.IsUltra);
+        Assert.Equal(290, basic.MaximumPoints);
+        Assert.Equal("low", basic.InputMode(87_500_000, 108_000_000));
+        Assert.Equal("high", basic.InputMode(470_000_000, 700_000_000));
+        Assert.Throws<InvalidOperationException>(() => basic.InputMode(100_000_000, 700_000_000));
+        Assert.False(basic.Supports(RbwOption.All[0]));
+        Assert.True(basic.Supports(RbwOption.All[4]));
+    }
+
+    [Fact]
+    public void UltraDetectionKeepsWideCapabilities()
+    {
+        var ultra = TinySaProfile.FromInfo("tinySA4 Ultra");
+        Assert.True(ultra.IsUltra);
+        Assert.Equal(450, ultra.MaximumPoints);
+        Assert.Equal(6_000_000_000, ultra.MaximumHz);
+        Assert.Null(ultra.InputMode(100_000, 6_000_000_000));
+        Assert.True(ultra.Supports(RbwOption.All[0]));
+        var zs407 = TinySaProfile.FromInfo("tinySA Ultra+ HW V0.5.3 ZS407");
+        Assert.Equal("tinySA Ultra+ ZS407", zs407.Name);
+        Assert.Equal(7_300_000_000, zs407.MaximumHz);
+    }
+
+    [Fact]
     public void ScanColorNotifiesWhenPalettePositionChanges()
     {
         var scan = new SpectrumScan();
@@ -131,11 +158,20 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void FrequencyAxisUsesGhzForGhzScans()
+    {
+        Assert.Equal("2.400 GHz", FrequencyAxis.Label(2_400_000_000, 100_000_000));
+        Assert.Equal("2.400025 GHz", FrequencyAxis.Label(2_400_025_000, 25_000));
+        Assert.Equal("470.025 MHz", FrequencyAxis.Label(470_025_000, 25_000));
+    }
+
+    [Fact]
     public void ExportNameUsesShortDateLocationAndTrailingUnderscore()
     {
         var date = new DateTimeOffset(2026, 7, 26, 18, 30, 0, TimeSpan.FromHours(2));
         Assert.Equal("26-07-26_Ziggo-Dome-Amsterdam_", ExportFileName.BaseName(date, "Ziggo Dome, Amsterdam"));
         Assert.Equal("26-07-26_UnknownLocation_", ExportFileName.BaseName(date, null));
+        Assert.Equal("Main-Stage-Evening", ExportFileName.BaseName(date, "Ignored", "Main Stage / Evening"));
     }
 
     private static ScanCapture Capture(DateTimeOffset date, params double[] levels) => new(date,

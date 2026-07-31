@@ -1,12 +1,43 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="TinySpectrum.Windows.App"
-             RequestedThemeVariant="Dark">
+             x:Class="TinySpectrum.Windows.App">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AppBackground" Color="#071019"/>
+          <SolidColorBrush x:Key="PanelBackground" Color="#101A24"/>
+          <SolidColorBrush x:Key="GraphBackground" Color="#07131C"/>
+          <SolidColorBrush x:Key="InputBackground" Color="#0B1822"/>
+          <SolidColorBrush x:Key="ChipBackground" Color="#142633"/>
+          <SolidColorBrush x:Key="PanelBorder" Color="#294153"/>
+          <SolidColorBrush x:Key="GraphBorder" Color="#254457"/>
+          <SolidColorBrush x:Key="RowBorder" Color="#263845"/>
+          <SolidColorBrush x:Key="PrimaryText" Color="#E8F2F8"/>
+          <SolidColorBrush x:Key="SecondaryText" Color="#8297A7"/>
+          <SolidColorBrush x:Key="PresetText" Color="#E8F2F8"/>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppBackground" Color="#EFF8FA"/>
+          <SolidColorBrush x:Key="PanelBackground" Color="#FFFFFF"/>
+          <SolidColorBrush x:Key="GraphBackground" Color="#F8FCFD"/>
+          <SolidColorBrush x:Key="InputBackground" Color="#F7FBFC"/>
+          <SolidColorBrush x:Key="ChipBackground" Color="#DCEEF3"/>
+          <SolidColorBrush x:Key="PanelBorder" Color="#AFCBD5"/>
+          <SolidColorBrush x:Key="GraphBorder" Color="#8EB8C7"/>
+          <SolidColorBrush x:Key="RowBorder" Color="#D4E3E8"/>
+          <SolidColorBrush x:Key="PrimaryText" Color="#102A35"/>
+          <SolidColorBrush x:Key="SecondaryText" Color="#456572"/>
+          <SolidColorBrush x:Key="PresetText" Color="#173B49"/>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme/>
     <Style Selector="Window">
       <Setter Property="FontFamily" Value="Inter"/>
-      <Setter Property="Foreground" Value="#E8F2F8"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
     </Style>
     <Style Selector="Button">
       <Setter Property="CornerRadius" Value="7"/>
@@ -41,8 +72,8 @@
       <Setter Property="Opacity" Value="0.72"/>
     </Style>
     <Style Selector="Button.secondary">
-      <Setter Property="Background" Value="#172A37"/>
-      <Setter Property="BorderBrush" Value="#345165"/>
+      <Setter Property="Background" Value="{DynamicResource ChipBackground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource PanelBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
     </Style>
     <Style Selector="Button.chip">
@@ -94,6 +125,7 @@
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="Padding" Value="11,5"/>
       <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{DynamicResource PresetText}"/>
     </Style>
     <Style Selector="Button.presetDelete">
       <Setter Property="Background" Value="Transparent"/>
@@ -117,8 +149,8 @@
       <Setter Property="BorderBrush" Value="#FF5968"/>
     </Style>
     <Style Selector="ComboBox, NumericUpDown, TextBox">
-      <Setter Property="Background" Value="#0B1822"/>
-      <Setter Property="BorderBrush" Value="#2C485B"/>
+      <Setter Property="Background" Value="{DynamicResource InputBackground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource PanelBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="6"/>
       <Setter Property="MinHeight" Value="34"/>
@@ -127,8 +159,8 @@
       <Setter Property="Padding" Value="4,2,4,9"/>
     </Style>
     <Style Selector="Border.controlCard">
-      <Setter Property="Background" Value="#101A24"/>
-      <Setter Property="BorderBrush" Value="#294153"/>
+      <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource PanelBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="10"/>
       <Setter Property="Padding" Value="13"/>
@@ -143,14 +175,20 @@
     <Style Selector="TextBlock.sectionTitle">
       <Setter Property="FontSize" Value="11"/>
       <Setter Property="FontWeight" Value="Bold"/>
-      <Setter Property="Foreground" Value="#8297A7"/>
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.fieldLabel">
       <Setter Property="FontSize" Value="10"/>
       <Setter Property="FontWeight" Value="Bold"/>
-      <Setter Property="Foreground" Value="#8297A7"/>
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryText}"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="ListBox#ScanBrowser ListBoxItem">
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     </Style>
   </Application.Styles>
 </Application>

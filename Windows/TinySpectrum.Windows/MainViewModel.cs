@@ -38,14 +38,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ObservableCollection<string> Ports { get; } = [];
     public ObservableCollection<SpectrumScan> Scans { get; } = [];
     public ObservableCollection<ScanPreset> Presets { get; } = [];
-    public IReadOnlyList<RbwOption> RbwOptions => RbwOption.All;
+    public IReadOnlyList<RbwOption> RbwOptions => RbwOption.All.Where(_serial.Profile.Supports).ToArray();
     public IReadOnlyList<IntervalOption> IntervalOptions => IntervalOption.All;
 
     public AsyncCommand ScanCommand { get; }
     public AsyncCommand ContinuousCommand { get; }
     public RelayCommand StopCommand { get; }
-    public RelayCommand SetRangeCommand { get; }
-    public RelayCommand SavePresetCommand { get; }
+    public AsyncCommand SetRangeCommand { get; }
+    public AsyncCommand SavePresetCommand { get; }
     public RelayCommand ClearCommand { get; }
 
     public MainViewModel()
@@ -58,8 +58,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ScanCommand = new(() => BeginScanAsync(false), () => CanScan);
         ContinuousCommand = new(() => BeginScanAsync(true), () => CanScan);
         StopCommand = new(Stop, () => IsScanning);
-        SetRangeCommand = new(SetRange, () => !IsScanning);
-        SavePresetCommand = new(SavePreset, () => !string.IsNullOrWhiteSpace(PresetName));
+        SetRangeCommand = new(SetRangeAsync, () => !IsScanning);
+        SavePresetCommand = new(SavePresetAsync, () => !string.IsNullOrWhiteSpace(PresetName) && !IsScanning);
         ClearCommand = new(() => { foreach (var scan in Scans) scan.IsVisible = false; NotifySpectrum(); });
 
         _ = RefreshPortsAsync();
@@ -70,16 +70,16 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public string? SelectedPort { get => _selectedPort; set => Set(ref _selectedPort, value); }
     public string ExportLocation { get => _exportLocation; set => Set(ref _exportLocation, value); }
-    public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(ConnectionText)); OnPropertyChanged(nameof(ConnectionColor)); } }
-    public string ConnectionText => IsConnected ? _serial.PortName ?? "CONNECTED" : "LOOKING FOR TINYSA";
+    public bool IsConnected { get => _isConnected; private set { Set(ref _isConnected, value); RaiseCommands(); OnPropertyChanged(nameof(FooterText)); OnPropertyChanged(nameof(ConnectionColor)); } }
+    public string FooterText => IsConnected ? $"{_serial.Profile.Name} {Status}" : Status;
     public string ConnectionColor => IsConnected ? "#32E38A" : "#7890A2";
     public string BatteryText => _batteryMillivolts is { } millivolts
         ? $"~{BatteryPercent(millivolts)}%  •  {millivolts / 1000.0:0.00} V"
         : "";
     public bool IsScanning { get => _isScanning; private set { Set(ref _isScanning, value); RaiseCommands(); } }
     public bool CanScan => IsConnected && !IsScanning;
-    public string PresetName { get => _presetName; set { if (Set(ref _presetName, value)) SavePresetCommand.RaiseCanExecuteChanged(); } }
-    public string Status { get => _status; private set => Set(ref _status, value); }
+    public string PresetName { get => _presetName; set { if (Set(ref _presetName, value)) SavePresetCommand.Raise(); } }
+    public string Status { get => _status; private set { if (Set(ref _status, value)) OnPropertyChanged(nameof(FooterText)); } }
     public void SetStatus(string status) => Status = status;
     public double StartMhz { get => _startMhz; set { if (Set(ref _startMhz, Math.Max(.1, value))) RangeChanged(); } }
     public double StopMhz { get => _stopMhz; set { if (Set(ref _stopMhz, Math.Max(StartMhz + .001, value))) RangeChanged(); } }
@@ -104,6 +104,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public int TimelineIndex { get => _timelineIndex; set { if (Set(ref _timelineIndex, Math.Max(0, value))) NotifySpectrum(); } }
     public int TimelineMaximum => Math.Max(0, VisibleContinuous?.CaptureCount - 1 ?? 0);
     public SpectrumScan? VisibleContinuous => Scans.FirstOrDefault(x => x.IsContinuous && x.IsVisible);
+    public SpectrumScan? TimelineScan => VisibleContinuous ?? Scans.FirstOrDefault(x => x.IsVisible);
+    public string TimelineOldestText => TimelineScan is { } scan
+        ? (scan.Captures?.FirstOrDefault()?.Date ?? scan.Date).LocalDateTime.ToString("HH:mm")
+        : "—";
     public bool HasVisibleContinuous => VisibleContinuous is not null;
     public int VisibleCount => Scans.Count(x => x.IsVisible);
 
@@ -115,7 +119,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             Status = "Connecting to TinySA…";
             await _serial.ConnectAsync(SelectedPort);
-            IsConnected = true; _lastBatteryPoll = DateTimeOffset.MinValue; _connectionRetryAfter = DateTimeOffset.MinValue; Status = "TinySA connected";
+            OnPropertyChanged(nameof(RbwOptions));
+            if (!_serial.Profile.Supports(SelectedRbw)) SelectedRbw = RbwOptions.First(x => x.BandwidthHz == 30_000);
+            IsConnected = true; _lastBatteryPoll = DateTimeOffset.MinValue; _connectionRetryAfter = DateTimeOffset.MinValue; Status = "connected";
         }
         catch { await MarkDisconnectedAsync(); }
         finally { _connectInFlight = false; }
@@ -144,8 +150,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 {
                     session = new SpectrumScan
                     {
-                        StartHz = StartMhz * 1e6,
-                        StopHz = StopMhz * 1e6,
+                        StartHz = points[0].Frequency,
+                        StopHz = points[^1].Frequency,
                         Date = capture.Date,
                         Rbw = continuous ? $"{SelectedRbw.Label} • every {SelectedInterval.Label} • {points.Count} pts" : SelectedRbw.Label,
                         Points = points.ToList(),
@@ -195,6 +201,16 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Scans.Remove(scan); RefreshScanColors(); Save(); NotifySpectrum();
     }
 
+    public void DeleteAllScans()
+    {
+        Scans.Clear(); TimelineIndex = 0; Save(); NotifySpectrum();
+    }
+
+    public void RenameScan(SpectrumScan scan, string? name)
+    {
+        scan.CustomName = name; Save();
+    }
+
     private void ShowScan(SpectrumScan scan)
     {
         if (scan.IsContinuous)
@@ -217,18 +233,24 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Save();
     }
 
-    private void SetRange()
+    private async Task SetRangeAsync()
     {
         if (!TryParseMhz(StartMhzInput, out var start) || !TryParseMhz(StopMhzInput, out var stop))
         {
             Status = "Enter valid start and stop frequencies in MHz";
             return;
         }
-        StartMhz = Math.Clamp(start, .1, 5299.999);
-        StopMhz = Math.Clamp(stop, StartMhz + .001, 5300);
+        var maximumMhz = _serial.Profile.MaximumHz / 1e6;
+        StartMhz = Math.Clamp(start, .1, maximumMhz - .001);
+        StopMhz = Math.Clamp(stop, StartMhz + .001, maximumMhz);
         StartMhzInput = FormatMhz(StartMhz); StopMhzInput = FormatMhz(StopMhz);
         RangeChanged();
-        Status = $"Range set to {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}";
+        try
+        {
+            if (IsConnected) await _serial.ConfigureRangeAsync(StartMhz * 1e6, StopMhz * 1e6);
+            Status = $"Range set to {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}";
+        }
+        catch (Exception exception) { Status = exception.Message; }
     }
 
     private static bool TryParseMhz(string text, out double value) =>
@@ -239,13 +261,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void RefreshScanColors()
     {
-        for (var index = 0; index < Scans.Count; index++) Scans[index].DisplayColor = ScanPalette.At(index);
+        for (var index = 0; index < Scans.Count; index++) Scans[index].DisplayColor = ScanPalette.At(index, !App.IsDark);
     }
 
-    private void SavePreset()
+    public void RefreshThemeColors() { RefreshScanColors(); NotifySpectrum(); }
+
+    private async Task SavePresetAsync()
     {
         var name = PresetName.Trim();
         if (name.Length == 0) return;
+        if (!TryParseMhz(StartMhzInput, out _) || !TryParseMhz(StopMhzInput, out _))
+        {
+            Status = "Enter valid start and stop frequencies in MHz";
+            return;
+        }
+        await SetRangeAsync();
         Presets.Add(new(name, StartMhz * 1e6, StopMhz * 1e6));
         PresetName = "";
         Save();
@@ -327,11 +357,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     private void NotifySpectrum()
     {
-        OnPropertyChanged(nameof(VisibleContinuous)); OnPropertyChanged(nameof(HasVisibleContinuous)); OnPropertyChanged(nameof(TimelineMaximum));
+        OnPropertyChanged(nameof(VisibleContinuous)); OnPropertyChanged(nameof(TimelineScan)); OnPropertyChanged(nameof(TimelineOldestText)); OnPropertyChanged(nameof(HasVisibleContinuous)); OnPropertyChanged(nameof(TimelineMaximum));
         OnPropertyChanged(nameof(VisibleCount)); OnPropertyChanged("Spectrum");
     }
     private void Save() => _store.Save(Scans, Presets);
-    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); SetRangeCommand.RaiseCanExecuteChanged(); }
+    private void RaiseCommands() { ScanCommand.Raise(); ContinuousCommand.Raise(); StopCommand.RaiseCanExecuteChanged(); SetRangeCommand.Raise(); SavePresetCommand.Raise(); }
     private static string DurationText(double duration)
     {
         var seconds = Math.Max(1, (int)Math.Round(duration));

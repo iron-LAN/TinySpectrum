@@ -16,7 +16,12 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
     let rbw: String
     var points: [ScanPoint]
     var captures: [ScanCapture]?
-    var title: String { "\(Self.short(startHz)) – \(Self.short(stopHz))" }
+    var customName: String? = nil
+    var rangeTitle: String { "\(Self.short(startHz)) – \(Self.short(stopHz))" }
+    var title: String {
+        let trimmed = customName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? rangeTitle : trimmed
+    }
     var captureCount: Int { captures?.count ?? 1 }
     var isContinuous: Bool { captures != nil }
     var peakHoldPoints: [ScanPoint] { peakHoldPoints(atCaptureIndex: nil) }
@@ -100,6 +105,30 @@ enum RBW: String, CaseIterable, Identifiable {
     }
 }
 
+struct TinySAProfile: Equatable {
+    let isUltra: Bool
+    let name: String
+    let maximumHz: Double
+    var maximumPoints: Int { isUltra ? 450 : 290 }
+    static let regular = TinySAProfile(isUltra: false, name: "tinySA Basic", maximumHz: 960_000_000)
+    static let ultra = TinySAProfile(isUltra: true, name: "tinySA Ultra ZS405", maximumHz: 6_000_000_000)
+    static let ultraPlusZS406 = TinySAProfile(isUltra: true, name: "tinySA Ultra+ ZS406", maximumHz: 6_000_000_000)
+    static let ultraPlusZS407 = TinySAProfile(isUltra: true, name: "tinySA Ultra+ ZS407", maximumHz: 7_300_000_000)
+    static func from(info: String) -> TinySAProfile {
+        let text = info.lowercased()
+        if text.contains("zs407") || text.contains("v0.5.3") { return .ultraPlusZS407 }
+        if text.contains("zs406") || text.contains("v0.4.6") || text.contains("ultra+") { return .ultraPlusZS406 }
+        return text.contains("ultra") || text.contains("tinysa4") ? .ultra : .regular
+    }
+    func supports(_ rbw: RBW) -> Bool { isUltra || (3_000...600_000).contains(rbw.bandwidthHz) }
+    func inputMode(startHz: Double, stopHz: Double) throws -> String? {
+        if isUltra { return nil }
+        if startHz >= 100_000, stopHz <= 350_000_000 { return "low" }
+        if startHz >= 240_000_000, stopHz <= 960_000_000 { return "high" }
+        throw SerialError.unsupportedRange("A tinySA Basic scan must fit entirely in LOW input (0.1–350 MHz) or HIGH input (240–960 MHz).")
+    }
+}
+
 enum ScanInterval: Int, CaseIterable, Identifiable {
     case seconds10 = 10
     case seconds30 = 30
@@ -154,31 +183,38 @@ enum SweepEstimator {
 }
 
 enum Palette {
-    private static let darkColors: [Color] = [
-        Color(red: 0.10, green: 0.86, blue: 1.00),
-        Color(red: 1.00, green: 0.55, blue: 0.14),
-        Color(red: 0.72, green: 0.34, blue: 1.00),
-        Color(red: 0.20, green: 0.95, blue: 0.55),
-        Color(red: 1.00, green: 0.25, blue: 0.67),
-        Color(red: 0.98, green: 0.86, blue: 0.18),
-        Color(red: 0.25, green: 0.48, blue: 1.00),
-        Color(red: 0.15, green: 0.90, blue: 0.78),
-        Color(red: 1.00, green: 0.28, blue: 0.30)
+    // Keep these values and their order aligned with Windows ScanPalette.
+    private static let darkModeColors: [Color] = [
+        Color(red: 0x19 / 255, green: 0xD9 / 255, blue: 0xFF / 255),
+        Color(red: 0xFF / 255, green: 0x8C / 255, blue: 0x24 / 255),
+        Color(red: 0xB0 / 255, green: 0x5C / 255, blue: 0xFF / 255),
+        Color(red: 0x32 / 255, green: 0xE3 / 255, blue: 0x8A / 255),
+        Color(red: 0xFF / 255, green: 0x4D / 255, blue: 0x9D / 255),
+        Color(red: 0xF5 / 255, green: 0xD6 / 255, blue: 0x2E / 255),
+        Color(red: 0x5E / 255, green: 0x8B / 255, blue: 0xFF / 255),
+        Color(red: 0x25 / 255, green: 0xE6 / 255, blue: 0xC8 / 255),
+        Color(red: 0xFF / 255, green: 0x5B / 255, blue: 0x5B / 255),
+        Color(red: 0xA8 / 255, green: 0xE0 / 255, blue: 0x63 / 255),
+        Color(red: 0xFF / 255, green: 0x74 / 255, blue: 0xE8 / 255),
+        Color(red: 0x66 / 255, green: 0xC2 / 255, blue: 0xFF / 255)
     ]
-    private static let lightColors: [Color] = [
-        Color(red: 0.00, green: 0.42, blue: 0.58),
-        Color(red: 0.72, green: 0.29, blue: 0.00),
-        Color(red: 0.43, green: 0.12, blue: 0.68),
-        Color(red: 0.00, green: 0.48, blue: 0.23),
-        Color(red: 0.68, green: 0.05, blue: 0.38),
-        Color(red: 0.58, green: 0.46, blue: 0.00),
-        Color(red: 0.08, green: 0.25, blue: 0.68),
-        Color(red: 0.00, green: 0.48, blue: 0.40),
-        Color(red: 0.72, green: 0.08, blue: 0.10)
+    private static let lightModeColors: [Color] = [
+        Color(red: 0x00 / 255, green: 0x7A / 255, blue: 0x99 / 255),
+        Color(red: 0xB8 / 255, green: 0x4A / 255, blue: 0x00 / 255),
+        Color(red: 0x6B / 255, green: 0x2A / 255, blue: 0xA6 / 255),
+        Color(red: 0x08 / 255, green: 0x7A / 255, blue: 0x45 / 255),
+        Color(red: 0xA8 / 255, green: 0x0D / 255, blue: 0x55 / 255),
+        Color(red: 0x8A / 255, green: 0x6A / 255, blue: 0x00 / 255),
+        Color(red: 0x26 / 255, green: 0x4F / 255, blue: 0xA8 / 255),
+        Color(red: 0x00 / 255, green: 0x76 / 255, blue: 0x6A / 255),
+        Color(red: 0xB3 / 255, green: 0x26 / 255, blue: 0x26 / 255),
+        Color(red: 0x4F / 255, green: 0x7A / 255, blue: 0x12 / 255),
+        Color(red: 0x8A / 255, green: 0x2C / 255, blue: 0x87 / 255),
+        Color(red: 0x28 / 255, green: 0x6A / 255, blue: 0x91 / 255)
     ]
-    static let count = darkColors.count
+    static let count = darkModeColors.count
     static func color(_ index: Int, scheme: ColorScheme) -> Color {
-        let colors = scheme == .dark ? darkColors : lightColors
+        let colors = scheme == .dark ? darkModeColors : lightModeColors
         return colors[index % colors.count]
     }
 }

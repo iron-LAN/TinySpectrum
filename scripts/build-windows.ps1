@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "2.3.1",
+    [string]$Version = "2.5.0",
     [string]$Runtime = "win-x64"
 )
 

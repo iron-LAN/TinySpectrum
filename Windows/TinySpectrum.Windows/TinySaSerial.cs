@@ -10,6 +10,7 @@ public sealed class TinySaSerial : IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public bool IsConnected => _port?.IsOpen == true;
+    public TinySaProfile Profile { get; private set; } = TinySaProfile.Regular;
     public string? PortName => _port?.PortName;
     public static IReadOnlyList<string> Ports() => SerialPort.GetPortNames().OrderBy(x => x).ToArray();
 
@@ -29,6 +30,9 @@ public sealed class TinySaSerial : IDisposable
         port.DiscardInBuffer();
         port.DiscardOutBuffer();
         _port = port;
+        try { Profile = TinySaProfile.FromInfo(await CommandAsync("info", TimeSpan.FromSeconds(3), cancellationToken)); }
+        catch { Profile = TinySaProfile.Regular; }
+        if (Profile.IsUltra) await CommandAsync("ultra on", TimeSpan.FromSeconds(3), cancellationToken);
     }
 
     public Task DisconnectAsync()
@@ -48,22 +52,43 @@ public sealed class TinySaSerial : IDisposable
         try
         {
             EnsureConnected();
+            await ConfigureRangeCoreAsync(startHz, stopHz, cancellationToken);
+            if (!Profile.Supports(rbw)) throw new InvalidOperationException($"{Profile.Name} supports resolution bandwidths from 3 to 600 kHz.");
             await CommandAsync("abort on", TimeSpan.FromSeconds(3), cancellationToken);
             await CommandAsync($"rbw {rbw.Command}", TimeSpan.FromSeconds(3), cancellationToken);
-            var response = await CommandAsync($"scan {(long)startHz} {(long)stopHz} {points} 2", TimeSpan.FromMinutes(10), cancellationToken);
-            var levels = new List<double>();
+            points = Math.Clamp(points, 2, Profile.MaximumPoints);
+            var response = await CommandAsync($"scan {(long)startHz} {(long)stopHz} {points} 3", TimeSpan.FromMinutes(10), cancellationToken);
+            var values = new List<ScanPoint>();
             foreach (var line in response.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
             {
-                var token = line.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-                if (token is null) continue;
-                token = token.Replace("-:.0", "-10.0", StringComparison.Ordinal);
-                if (double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var level)) levels.Add(level);
+                var tokens = line.Trim().Replace("-:.0", "-10.0", StringComparison.Ordinal)
+                    .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (tokens.Length >= 2 && double.TryParse(tokens[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var frequency)
+                    && double.TryParse(tokens[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var level))
+                    values.Add(new(frequency, level));
             }
-            if (levels.Count < 2) throw new IOException("The tinySA returned no readable measurement points.");
-            return levels.Select((level, index) => new ScanPoint(
-                startHz + (stopHz - startHz) * index / (levels.Count - 1), level)).ToArray();
+            if (values.Count < 2) throw new IOException("The tinySA returned no readable frequency/level measurement pairs.");
+            return values;
         }
         finally { _gate.Release(); }
+    }
+
+    public async Task ConfigureRangeAsync(double startHz, double stopHz, CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try { await ConfigureRangeCoreAsync(startHz, stopHz, cancellationToken); }
+        finally { _gate.Release(); }
+    }
+
+    private async Task ConfigureRangeCoreAsync(double startHz, double stopHz, CancellationToken cancellationToken)
+    {
+        EnsureConnected();
+        if (startHz < 100_000 || stopHz > Profile.MaximumHz || stopHz <= startHz)
+            throw new InvalidOperationException($"The selected range is outside the supported range of {Profile.Name}.");
+        if (Profile.InputMode(startHz, stopHz) is { } mode)
+            await CommandAsync($"mode {mode} input", TimeSpan.FromSeconds(3), cancellationToken);
+        await CommandAsync($"sweep start {(long)startHz}", TimeSpan.FromSeconds(3), cancellationToken);
+        await CommandAsync($"sweep stop {(long)stopHz}", TimeSpan.FromSeconds(3), cancellationToken);
     }
 
     public async Task<int> BatteryVoltageAsync(CancellationToken cancellationToken = default)

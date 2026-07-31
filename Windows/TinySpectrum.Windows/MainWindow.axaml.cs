@@ -15,8 +15,11 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new MainViewModel();
         Closed += (_, _) => ViewModel.Dispose();
-        Opened += async (_, _) => await CheckForUpdatesAsync(false);
+        Opened += async (_, _) => { UpdateThemeButton(); await CheckForUpdatesAsync(false); };
     }
+
+    private void Theme_Click(object? sender, RoutedEventArgs e) { App.ToggleTheme(); ViewModel.RefreshThemeColors(); UpdateThemeButton(); }
+    private void UpdateThemeButton() => ThemeButton.Content = App.IsDark ? "☀  Light" : "☾  Dark";
 
     private void Preset_Click(object? sender, RoutedEventArgs e)
     {
@@ -37,7 +40,7 @@ public partial class MainWindow : Window
     {
         if (sender is not Button { Tag: SpectrumScan scan }) return;
         var extension = scan.IsContinuous ? "sdb3" : "csv";
-        var baseName = ExportFileName.BaseName(scan.Date, ViewModel.ExportLocation);
+        var baseName = ExportFileName.BaseName(scan.Date, ViewModel.ExportLocation, scan.CustomName);
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = scan.IsContinuous ? "Export WWB timeline" : "Export WWB scan",
@@ -55,6 +58,18 @@ public partial class MainWindow : Window
         if (sender is Button { Tag: SpectrumScan scan }) ViewModel.DeleteScan(scan);
     }
 
+    private async void Rename_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: SpectrumScan scan }) return;
+        var name = await new RenameScanWindow(scan.CustomName ?? "").ShowDialog<string?>(this);
+        if (name is not null) ViewModel.RenameScan(scan, name);
+    }
+
+    private async void DeleteAll_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.Scans.Count > 0 && await new ConfirmWindow("Delete all scans?", "This permanently removes every saved scan from the browser.").ShowDialog<bool>(this)) ViewModel.DeleteAllScans();
+    }
+
     private async void CheckUpdates_Click(object? sender, RoutedEventArgs e) => await CheckForUpdatesAsync(true);
 
     private async Task CheckForUpdatesAsync(bool userInitiated)
@@ -69,7 +84,7 @@ public partial class MainWindow : Window
                 if (userInitiated) await new MessageWindow("TinySpectrum is up to date", $"Version {_updates.CurrentVersion.ToString(3)} is the newest version.").ShowDialog(this);
                 return;
             }
-            var install = await new UpdateWindow(update).ShowDialog<bool>(this);
+            var install = await new UpdateWindow(update, _updates.CurrentVersion).ShowDialog<bool>(this);
             if (!install) return;
             ViewModel.SetStatus($"Downloading TinySpectrum {update.Version}…");
             await _updates.InstallAsync(update);
@@ -82,9 +97,33 @@ public partial class MainWindow : Window
     }
 }
 
+internal sealed class RenameScanWindow : Window
+{
+    public RenameScanWindow(string currentName)
+    {
+        Title = "Rename Scan"; Width = 410; Height = 190; CanResize = false;
+        var input = new TextBox { Text = currentName, PlaceholderText = "Scan name" };
+        var cancel = new Button { Content = "Cancel" }; var save = new Button { Content = "Save" };
+        cancel.Click += (_, _) => Close(null); save.Click += (_, _) => Close(input.Text?.Trim() ?? "");
+        Content = new StackPanel { Margin = new(24), Spacing = 16, Children = { new TextBlock { Text = "Rename scan", FontSize = 19, FontWeight = Avalonia.Media.FontWeight.Bold }, input, new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 10, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { cancel, save } } } };
+        Opened += (_, _) => { input.Focus(); input.SelectAll(); };
+    }
+}
+
+internal sealed class ConfirmWindow : Window
+{
+    public ConfirmWindow(string title, string message)
+    {
+        Title = title; Width = 410; Height = 190; CanResize = false;
+        var cancel = new Button { Content = "Cancel" }; var confirm = new Button { Content = "Delete All" };
+        cancel.Click += (_, _) => Close(false); confirm.Click += (_, _) => Close(true);
+        Content = new StackPanel { Margin = new(24), Spacing = 16, Children = { new TextBlock { Text = title, FontSize = 19, FontWeight = Avalonia.Media.FontWeight.Bold }, new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap }, new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 10, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { cancel, confirm } } } };
+    }
+}
+
 internal sealed class UpdateWindow : Window
 {
-    public UpdateWindow(AppUpdate update)
+    public UpdateWindow(AppUpdate update, Version currentVersion)
     {
         Title = "TinySpectrum Update"; Width = 430; Height = 220; CanResize = false;
         var later = new Button { Content = "Later" };
@@ -96,6 +135,7 @@ internal sealed class UpdateWindow : Window
             Children =
             {
                 new TextBlock { Text = $"TinySpectrum {update.Version} is available", FontSize = 20, FontWeight = Avalonia.Media.FontWeight.Bold },
+                new TextBlock { Text = $"Installed: {currentVersion.ToString(3)}    Available: {update.Version.ToString(3)}", FontFamily = "Consolas" },
                 new TextBlock { Text = "Download the Windows update, install it in place, and restart TinySpectrum?", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
                 new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 10, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { later, install } }
             }

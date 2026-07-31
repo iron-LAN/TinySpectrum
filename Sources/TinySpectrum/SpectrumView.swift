@@ -30,7 +30,9 @@ struct SpectrumView: View {
             let plot = plotRect(geo.size)
             let bounds = dataBounds
             Canvas { context, _ in
-                let plotBackground = colorScheme == .dark ? Color(red: 0.025, green: 0.055, blue: 0.075) : Color(red: 0.94, green: 0.97, blue: 0.98)
+                let plotBackground = colorScheme == .dark
+                    ? Color(red: 7 / 255, green: 19 / 255, blue: 28 / 255)
+                    : Color(red: 248 / 255, green: 252 / 255, blue: 253 / 255)
                 context.fill(Path(roundedRect: plot, cornerRadius: 8), with: .color(plotBackground))
                 drawGrid(context: context, plot: plot)
                 labels(context: context, plot: plot, bounds: bounds)
@@ -258,11 +260,12 @@ enum FrequencyAxis {
     }
 
     static func label(_ frequency: Double, step: Double) -> String {
-        let useMHz = abs(frequency) >= 1_000_000 || step >= 1_000_000
-        let divisor = useMHz ? 1_000_000.0 : 1_000.0
-        let unit = useMHz ? "MHz" : "kHz"
+        let useGHz = abs(frequency) >= 1_000_000_000 || step >= 1_000_000_000
+        let useMHz = !useGHz && (abs(frequency) >= 1_000_000 || step >= 1_000_000)
+        let divisor = useGHz ? 1_000_000_000.0 : useMHz ? 1_000_000.0 : 1_000.0
+        let unit = useGHz ? "GHz" : useMHz ? "MHz" : "kHz"
         let scaledStep = step / divisor
-        let decimals = useMHz ? 3 : decimalPlaces(for: scaledStep)
+        let decimals = useGHz ? min(6, max(3, decimalPlaces(for: scaledStep))) : useMHz ? 3 : decimalPlaces(for: scaledStep)
         return String(format: "%.*f %@", decimals, frequency / divisor, unit)
     }
 

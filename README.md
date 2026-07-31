@@ -19,30 +19,26 @@ TinySpectrum turns a tinySA Ultra into a focused desktop scanning tool. It conne
 | Device | Status | Notes |
 | --- | --- | --- |
 | tinySA Ultra ZS405 | **Confirmed working** | Tested with the current stable macOS and Windows releases. |
-| tinySA Basic | **Beta testing** | Initial compatibility is available in [`v2.4.0-beta.2`](https://github.com/iron-LAN/TinySpectrum/releases/tag/v2.4.0-beta.2), but has not yet been confirmed on enough physical devices. |
-| tinySA Ultra+ | **Not yet verified** | It may work through the Ultra-compatible command set, but it is not currently claimed as tested or supported. |
+| tinySA Basic | **Supported, testing requested** | Device-specific limits and scan commands are included, but wider physical-device testing is still requested. |
+| tinySA Ultra+ ZS406 | **Confirmed working** | Tested over USB on macOS and Windows, including Ultra mode scanning up to 6 GHz. |
+| tinySA Ultra+ ZS407 | **Supported, testing requested** | Detected automatically with its reported model range; wider physical-device testing is still requested. |
 
-At present, the tinySA Ultra ZS405 is the only model known and confirmed to work. If you test the `2.4.0` beta with a tinySA Basic, please include the device model, firmware version, operating system, selected range, and input connector when reporting the result.
-
-<p align="center">
-  <img src="https://github.com/iron-LAN/TinySpectrum/releases/download/v2.2.0/Peak.Hold.png" alt="TinySpectrum showing a continuous scan with cumulative Peak Hold" width="100%">
-</p>
-<p align="center"><em>Continuous scanning with the cumulative Peak Hold overlay.</em></p>
+If you test a device marked “testing requested,” please include its model, firmware version, operating system, selected range, and input connector when reporting the result.
 
 ## Interface
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Focused scan</strong></td>
-    <td width="50%" align="center"><strong>Scan comparison</strong></td>
+    <td width="50%" align="center"><strong>macOS</strong></td>
+    <td width="50%" align="center"><strong>Windows</strong></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/iron-LAN/TinySpectrum/releases/download/v2.2.0/Single.Scan.Visible.png" alt="TinySpectrum displaying one selected scan"></td>
-    <td><img src="https://github.com/iron-LAN/TinySpectrum/releases/download/v2.2.0/Multiple.Scans.Visible.png" alt="TinySpectrum comparing a continuous session with a regular scan"></td>
+    <td><img src="screenshots/macos-dark-mode.png" alt="TinySpectrum for macOS in dark mode"></td>
+    <td><img src="screenshots/windows-dark-mode.png" alt="TinySpectrum for Windows in dark mode"></td>
   </tr>
   <tr>
-    <td align="center">Keep one continuous session visible for a clear timeline.</td>
-    <td align="center">Overlay regular scans when a comparison is useful.</td>
+    <td><img src="screenshots/macos-light-mode.png" alt="TinySpectrum for macOS in light mode"></td>
+    <td><img src="screenshots/windows-light-mode.png" alt="TinySpectrum for Windows in light mode"></td>
   </tr>
 </table>
 
@@ -62,7 +58,8 @@ At present, the tinySA Ultra ZS405 is the only model known and confirmed to work
 - **Reusable presets** — save frequently scanned frequency ranges for one-click recall.
 - **Wireless Workbench export** — export regular scans as WWB-compatible CSV and continuous sessions as `.sdb3` timeline data with one antenna curve.
 - **Private by design** — scans and presets remain on your computer; approximate location on macOS is used only for optional city-based export filenames.
-- **Built-in updates** — Sparkle checks the signed public update feed and can install new TinySpectrum releases from inside the app.
+- **Scan library tools** — rename individual scans, export them with the custom name, or delete one or all saved scans.
+- **Built-in updates** — both apps check for stable releases and can install new TinySpectrum versions from inside the app.
 - **Light and dark appearance** — switch themes without leaving the scanner.
 
 ## Continuous RF surveys
@@ -102,14 +99,14 @@ Continuous exports preserve the captured timeline so it can be played inside Wir
 
 ## Install
 
-1. Download the newest `TinySpectrum-v…-macOS.zip` from [Releases](https://github.com/iron-LAN/TinySpectrum/releases/latest).
+1. Download the newest macOS or Windows package from [Releases](https://github.com/iron-LAN/TinySpectrum/releases/latest).
 2. Extract `TinySpectrum.app` and move it to `/Applications`.
 3. Connect the tinySA Ultra directly over USB.
 4. Close any other software using its serial port, then open TinySpectrum.
 
 The current release is ad-hoc signed. On first launch, macOS may require confirmation in **System Settings → Privacy & Security** because the app is not yet notarized with an Apple Developer ID.
 
-TinySpectrum requires **macOS 13 Ventura or newer**.
+TinySpectrum requires **macOS 13 Ventura or newer**, or **Windows 10/11 x64**. The Windows archive is self-contained; extract it and run `TinySpectrum.exe`.
 
 ## Quick start
 
@@ -132,7 +129,7 @@ TinySpectrum exposes the manual RBWs supported by tinySA Ultra firmware:
 
 `200 Hz` · `1 kHz` · `3 kHz` · `10 kHz` · `30 kHz` · `100 kHz` · `300 kHz` · `600 kHz` · `850 kHz`
 
-The ZS405 range is conservatively limited to 5.3 GHz. The `2.4.0` beta applies the documented 3–600 kHz RBW and 290-point limits when it detects a tinySA Basic. Hardware capabilities and calibrated ranges can differ by model and firmware.
+TinySpectrum enables Ultra mode over USB when it detects an Ultra-family device, then selects the scan ceiling from the model information returned at connection time: 6 GHz for ZS405/ZS406 and 7.3 GHz for ZS407. It applies the documented 3–600 kHz RBW and 290-point limits when it detects a tinySA Basic. Hardware capabilities and calibrated ranges can differ by model and firmware.
 
 ## Build from source
 
@@ -157,7 +154,7 @@ swift test
 
 ## Updates and releases
 
-Stable releases are built on macOS by GitHub Actions, packaged as a `.zip`, signed for Sparkle update verification, and published on the [Releases page](https://github.com/iron-LAN/TinySpectrum/releases).
+Stable releases are built by GitHub Actions and published together on one [Releases page](https://github.com/iron-LAN/TinySpectrum/releases): a signed Sparkle-compatible macOS archive and a self-contained Windows x64 archive.
 
 Inside TinySpectrum, use **Check for Updates…** from the application menu or allow the automatic launch check to notify you when a newer stable version is available.
 

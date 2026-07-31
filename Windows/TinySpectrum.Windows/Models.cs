@@ -9,10 +9,40 @@ namespace TinySpectrum.Windows;
 public sealed record ScanPoint(double Frequency, double Level);
 public sealed record ScanCapture(DateTimeOffset Date, List<ScanPoint> Points);
 
+public sealed record TinySaProfile(bool IsUltra, string Name, int MaximumPoints, double MaximumHz)
+{
+    public static TinySaProfile Regular { get; } = new(false, "tinySA Basic", 290, 960_000_000);
+    public static TinySaProfile Ultra { get; } = new(true, "tinySA Ultra ZS405", 450, 6_000_000_000);
+    public static TinySaProfile UltraPlusZs406 { get; } = new(true, "tinySA Ultra+ ZS406", 450, 6_000_000_000);
+    public static TinySaProfile UltraPlusZs407 { get; } = new(true, "tinySA Ultra+ ZS407", 450, 7_300_000_000);
+    public static TinySaProfile FromInfo(string info)
+    {
+        if (info.Contains("ZS407", StringComparison.OrdinalIgnoreCase) || info.Contains("V0.5.3", StringComparison.OrdinalIgnoreCase)) return UltraPlusZs407;
+        if (info.Contains("ZS406", StringComparison.OrdinalIgnoreCase) || info.Contains("V0.4.6", StringComparison.OrdinalIgnoreCase)
+            || info.Contains("Ultra+", StringComparison.OrdinalIgnoreCase)) return UltraPlusZs406;
+        return info.Contains("ultra", StringComparison.OrdinalIgnoreCase) || info.Contains("tinySA4", StringComparison.OrdinalIgnoreCase) ? Ultra : Regular;
+    }
+    public bool Supports(RbwOption rbw) => IsUltra || rbw.BandwidthHz is >= 3_000 and <= 600_000;
+    public string? InputMode(double startHz, double stopHz)
+    {
+        if (IsUltra) return null;
+        if (startHz >= 100_000 && stopHz <= 350_000_000) return "low";
+        if (startHz >= 240_000_000 && stopHz <= 960_000_000) return "high";
+        throw new InvalidOperationException("A tinySA Basic scan must fit entirely in LOW input (0.1–350 MHz) or HIGH input (240–960 MHz).");
+    }
+}
+
 public static class ScanPalette
 {
-    public static readonly string[] Colors = ["#19D9FF", "#FF8C24", "#B05CFF", "#32E38A", "#FF4D9D", "#F5D62E"];
-    public static string At(int index) => Colors[Math.Max(0, index) % Colors.Length];
+    public static readonly string[] Colors =
+    ["#19D9FF", "#FF8C24", "#B05CFF", "#32E38A", "#FF4D9D", "#F5D62E", "#5E8BFF", "#25E6C8", "#FF5B5B", "#A8E063", "#FF74E8", "#66C2FF"];
+    public static readonly string[] LightModeColors =
+    ["#007A99", "#B84A00", "#6B2AA6", "#087A45", "#A80D55", "#8A6A00", "#264FA8", "#00766A", "#B32626", "#4F7A12", "#8A2C87", "#286A91"];
+    public static string At(int index, bool lightMode = false)
+    {
+        var colors = lightMode ? LightModeColors : Colors;
+        return colors[Math.Max(0, index) % colors.Length];
+    }
 }
 
 public sealed class SpectrumScan : INotifyPropertyChanged
@@ -24,11 +54,26 @@ public sealed class SpectrumScan : INotifyPropertyChanged
     public string Rbw { get; init; } = "30 kHz";
     public List<ScanPoint> Points { get; set; } = [];
     public List<ScanCapture>? Captures { get; set; }
+    private string? _customName;
+    public string? CustomName
+    {
+        get => _customName;
+        set
+        {
+            var normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            if (_customName == normalized) return;
+            _customName = normalized;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Title));
+        }
+    }
     [JsonIgnore] public bool IsContinuous => Captures is not null;
     [JsonIgnore] public int CaptureCount => Captures?.Count ?? 1;
     [JsonIgnore] public string CaptureLabel => IsContinuous ? $"⌚ {CaptureCount} scans" : "";
-    [JsonIgnore] public string Title => $"{FrequencyText.Short(StartHz)} – {FrequencyText.Short(StopHz)}";
-    [JsonIgnore] public string DetailsLabel => $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}  •  {Rbw}";
+    [JsonIgnore] public string RangeTitle => $"{FrequencyText.Short(StartHz)} – {FrequencyText.Short(StopHz)}";
+    [JsonIgnore] public string Title => CustomName ?? RangeTitle;
+    [JsonIgnore] public string DateLabel => $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}";
+    [JsonIgnore] public string ResolutionLabel => Rbw;
     private string _displayColor = ScanPalette.Colors[0];
     [JsonIgnore]
     public string DisplayColor
@@ -215,16 +260,30 @@ public static class FrequencyAxis
         return result;
     }
 
-    public static string Label(double frequency) =>
-        frequency >= 1e6
-            ? string.Create(CultureInfo.InvariantCulture, $"{frequency / 1e6:F3} MHz")
-            : string.Create(CultureInfo.InvariantCulture, $"{frequency / 1e3:F3} kHz");
+    public static string Label(double frequency, double step)
+    {
+        var divisor = Math.Abs(frequency) >= 1e9 || step >= 1e9 ? 1e9 : Math.Abs(frequency) >= 1e6 || step >= 1e6 ? 1e6 : 1e3;
+        var unit = divisor == 1e9 ? "GHz" : divisor == 1e6 ? "MHz" : "kHz";
+        var decimals = divisor == 1e9 ? Math.Clamp(DecimalPlaces(step / divisor), 3, 6) : 3;
+        return $"{(frequency / divisor).ToString($"F{decimals}", CultureInfo.InvariantCulture)} {unit}";
+    }
+
+    private static int DecimalPlaces(double value)
+    {
+        for (var decimals = 0; decimals <= 6; decimals++)
+        {
+            var scale = Math.Pow(10, decimals);
+            if (Math.Abs(value * scale - Math.Round(value * scale)) < 1e-7) return decimals;
+        }
+        return 6;
+    }
 }
 
 public static class ExportFileName
 {
-    public static string BaseName(DateTimeOffset date, string? location)
+    public static string BaseName(DateTimeOffset date, string? location, string? customName = null)
     {
+        if (!string.IsNullOrWhiteSpace(customName)) return SafePart(customName);
         var safeLocation = SafePart(string.IsNullOrWhiteSpace(location) ? "UnknownLocation" : location);
         return $"{date.LocalDateTime:dd-MM-yy}_{safeLocation}_";
     }
