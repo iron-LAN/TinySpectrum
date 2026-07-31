@@ -6,6 +6,19 @@
     <description>Public stable updates for TinySpectrum.</description>
     <language>en</language>
     <item>
+      <title>TinySpectrum 2.5.0</title>
+      <sparkle:version>33</sparkle:version>
+      <sparkle:shortVersionString>2.5.0</sparkle:shortVersionString>
+      <pubDate>Fri, 31 Jul 2026 11:48:52 +0000</pubDate>
+      <link>https://github.com/iron-LAN/TinySpectrum/releases/tag/v2.5.0</link>
+      <sparkle:releaseNotesLink>https://github.com/iron-LAN/TinySpectrum/releases/tag/v2.5.0</sparkle:releaseNotesLink>
+      <enclosure
+        url="https://github.com/iron-LAN/TinySpectrum/releases/download/v2.5.0/TinySpectrum-v2.5.0-macOS.zip"
+        sparkle:edSignature="Te9KRgK+eoVCm1qKJsmoOgdQkkf1eq2XkiwpAvnqXCUpWpNfBQf3ILgvftfm7VcWbWgrmbAvqA1r1F2JTY9AAw=="
+        length="1434718"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>TinySpectrum 2.3.1</title>
       <sparkle:version>20</sparkle:version>
       <sparkle:shortVersionString>2.3.1</sparkle:shortVersionString>
