@@ -84,7 +84,7 @@ public partial class MainWindow : Window
                 if (userInitiated) await new MessageWindow("TinySpectrum is up to date", $"Version {_updates.CurrentVersion.ToString(3)} is the newest version.").ShowDialog(this);
                 return;
             }
-            var install = await new UpdateWindow(update).ShowDialog<bool>(this);
+            var install = await new UpdateWindow(update, _updates.CurrentVersion).ShowDialog<bool>(this);
             if (!install) return;
             ViewModel.SetStatus($"Downloading TinySpectrum {update.Version}…");
             await _updates.InstallAsync(update);
@@ -123,7 +123,7 @@ internal sealed class ConfirmWindow : Window
 
 internal sealed class UpdateWindow : Window
 {
-    public UpdateWindow(AppUpdate update)
+    public UpdateWindow(AppUpdate update, Version currentVersion)
     {
         Title = "TinySpectrum Update"; Width = 430; Height = 220; CanResize = false;
         var later = new Button { Content = "Later" };
@@ -135,6 +135,7 @@ internal sealed class UpdateWindow : Window
             Children =
             {
                 new TextBlock { Text = $"TinySpectrum {update.Version} is available", FontSize = 20, FontWeight = Avalonia.Media.FontWeight.Bold },
+                new TextBlock { Text = $"Installed: {currentVersion.ToString(3)}    Available: {update.Version.ToString(3)}", FontFamily = "Consolas" },
                 new TextBlock { Text = "Download the Windows update, install it in place, and restart TinySpectrum?", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
                 new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 10, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { later, install } }
             }
