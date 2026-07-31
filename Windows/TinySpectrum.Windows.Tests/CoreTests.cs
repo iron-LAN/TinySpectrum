@@ -72,6 +72,8 @@ public sealed class CoreTests
     {
         var version = new Version(2, 3, 1);
         Assert.True(UpdateService.IsUpdateAvailable(version, true, version));
+        Assert.True(UpdateService.IsUpdateAvailable(new Version(2, 5, 0, 0), true, new Version(2, 5, 0)));
+        Assert.False(UpdateService.IsUpdateAvailable(new Version(2, 5, 0, 0), false, new Version(2, 5, 0)));
         Assert.False(UpdateService.IsUpdateAvailable(version, false, version));
         Assert.True(UpdateService.IsUpdateAvailable(new Version(2, 3, 0), false, version));
     }
