@@ -76,6 +76,7 @@ public partial class MainWindow : Window
     {
         if (_checkingForUpdates) return;
         _checkingForUpdates = true;
+        var installRequested = false;
         try
         {
             var update = await _updates.CheckAsync();
@@ -86,12 +87,14 @@ public partial class MainWindow : Window
             }
             var install = await new UpdateWindow(update, _updates.CurrentVersion).ShowDialog<bool>(this);
             if (!install) return;
+            installRequested = true;
             ViewModel.SetStatus($"Downloading TinySpectrum {update.Version}…");
             await _updates.InstallAsync(update);
         }
         catch (Exception exception)
         {
-            if (userInitiated) await new MessageWindow("Unable to check for updates", exception.Message).ShowDialog(this);
+            if (userInitiated || installRequested)
+                await new MessageWindow(installRequested ? "Unable to install update" : "Unable to check for updates", exception.Message).ShowDialog(this);
         }
         finally { _checkingForUpdates = false; }
     }

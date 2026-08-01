@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.IO.Compression;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -73,23 +74,38 @@ public sealed class UpdateService
         var scriptPath = Path.Combine(updateRoot, "install-update.ps1");
         File.WriteAllText(scriptPath, InstallerScript);
 
+        var installer = CreateInstallerStartInfo(scriptPath, payloadPath, targetPath, executablePath, Environment.ProcessId);
+        Process process;
+        try
+        {
+            process = Process.Start(installer) ?? throw new InvalidOperationException("Windows could not start the TinySpectrum updater.");
+        }
+        catch (Win32Exception exception) when (exception.NativeErrorCode == 1223)
+        {
+            throw new InvalidOperationException("Administrator permission was cancelled. TinySpectrum was not closed or updated.", exception);
+        }
+        await Task.Delay(500, cancellationToken);
+        if (process.HasExited)
+            throw new InvalidOperationException($"The TinySpectrum updater stopped before installation (exit code {process.ExitCode}).");
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime) lifetime.Shutdown();
+    }
+
+    public static ProcessStartInfo CreateInstallerStartInfo(
+        string scriptPath, string payloadPath, string targetPath, string executablePath, int parentProcessId)
+    {
         var installer = new ProcessStartInfo("powershell.exe")
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
+            UseShellExecute = true,
+            Verb = "runas",
             WindowStyle = ProcessWindowStyle.Hidden
         };
         foreach (var argument in new[]
                  {
                      "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", scriptPath,
-                     "-ParentProcessId", Environment.ProcessId.ToString(), "-Source", payloadPath, "-Target", targetPath,
+                     "-ParentProcessId", parentProcessId.ToString(), "-Source", payloadPath, "-Target", targetPath,
                      "-Executable", executablePath
                  }) installer.ArgumentList.Add(argument);
-        var process = Process.Start(installer) ?? throw new InvalidOperationException("Windows could not start the TinySpectrum updater.");
-        await Task.Delay(500, cancellationToken);
-        if (process.HasExited)
-            throw new InvalidOperationException($"The TinySpectrum updater stopped before installation (exit code {process.ExitCode}).");
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime) lifetime.Shutdown();
+        return installer;
     }
 
     public const string InstallerScript = """
