@@ -89,6 +89,16 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void WindowsInstallerRequestsAdministratorPermission()
+    {
+        var startInfo = UpdateService.CreateInstallerStartInfo("update.ps1", "source", "target", "TinySpectrum.exe", 42);
+        Assert.True(startInfo.UseShellExecute);
+        Assert.Equal("runas", startInfo.Verb);
+        Assert.Contains("-ParentProcessId", startInfo.ArgumentList);
+        Assert.Contains("42", startInfo.ArgumentList);
+    }
+
+    [Fact]
     public void SweepEstimatorCouplesSpanResolutionAndInterval()
     {
         const double span = 700_000_000;
