@@ -99,6 +99,19 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void TimelineExportStateTracksDirtyAndCurrentCaptures()
+    {
+        var scan = new SpectrumScan { Captures = [Capture(DateTimeOffset.Now, -80, -70)] };
+        Assert.False(scan.IsWwbExportCurrent);
+        scan.MarkWwbExported("timeline.sdb3");
+        Assert.True(scan.IsWwbExportCurrent);
+        scan.MarkWwbDirty();
+        Assert.False(scan.IsWwbExportCurrent);
+        scan.MarkWwbExported("timeline.sdb3");
+        Assert.True(scan.IsWwbExportCurrent);
+    }
+
+    [Fact]
     public void SweepEstimatorCouplesSpanResolutionAndInterval()
     {
         const double span = 700_000_000;

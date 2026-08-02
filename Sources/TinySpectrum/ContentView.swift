@@ -270,7 +270,7 @@ struct ContentView: View {
                                 .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
                                 .frame(width: 28, height: 28)
                                 .background(Color.cyan, in: Circle())
-                                .overlay(Circle().stroke(.white.opacity(0.3), lineWidth: 1))
+                                .overlay(Circle().stroke(model.isTimelineExportCurrent(scan) ? Color.green : .white.opacity(0.3), lineWidth: model.isTimelineExportCurrent(scan) ? 2 : 1))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Export to Shure Wireless Workbench")
@@ -323,9 +323,7 @@ struct ContentView: View {
         panel.prompt = "Export Timeline"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            let data = try WWBTimelineExporter.data(for: scan, title: baseName)
-            try data.write(to: url, options: .atomic)
-            model.status = "Exported WWB timeline with \(scan.captureCount) sweeps to \(url.lastPathComponent)"
+            try model.exportTimeline(scan, to: url)
         } catch {
             model.status = "WWB timeline export failed: \(error.localizedDescription)"
         }
