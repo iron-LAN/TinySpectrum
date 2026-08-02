@@ -24,6 +24,7 @@ final class AppModel: ObservableObject {
     @Published var batteryMillivolts: Int?
     @Published var deviceProfile = TinySAProfile.regular
     @Published var currentCity: String?
+    @Published private(set) var timelineExportSavedCaptureCounts: [UUID: Int] = [:]
     @Published var presets: [ScanPreset] = [
         .init(id: UUID(), name: "FM Broadcast", startHz: 87_500_000, stopHz: 108_000_000),
         .init(id: UUID(), name: "ISM 433", startHz: 433_000_000, stopHz: 435_000_000),
@@ -39,6 +40,7 @@ final class AppModel: ObservableObject {
     private let storeURL: URL
     private enum TimingDriver { case resolution, interval }
     private var timingDriver: TimingDriver = .resolution
+    private var timelineExportURLs: [UUID: URL] = [:]
 
     init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -128,6 +130,7 @@ final class AppModel: ObservableObject {
             guard let self else { return }
             var continuousGroupID: UUID?
             repeat {
+                if shouldRepeat, let continuousGroupID { markTimelineExportDirty(continuousGroupID) }
                 intervalProgress = nil
                 nextScanRemaining = nil
                 let sweepStarted = Date()
@@ -151,6 +154,7 @@ final class AppModel: ObservableObject {
                         status = shouldRepeat ? "Continuous scan • 1 capture" : "Captured \(values.count) points"
                     }
                     save()
+                    if shouldRepeat, let continuousGroupID { saveTimelineIfBound(continuousGroupID) }
                     if shouldRepeat, continuous, !Task.isCancelled {
                         let deadline = sweepStarted.addingTimeInterval(scanInterval.seconds)
                         while continuous, !Task.isCancelled {
@@ -168,6 +172,7 @@ final class AppModel: ObservableObject {
             } while continuous && !Task.isCancelled
             intervalProgress = nil
             nextScanRemaining = nil
+            if shouldRepeat, let continuousGroupID { saveTimelineIfBound(continuousGroupID) }
             isScanning = false
             if Task.isCancelled || (shouldRepeat && !continuous) { status = "Scan stopped" }
             continuous = false
@@ -231,9 +236,17 @@ final class AppModel: ObservableObject {
         }
         selectedScanIDs.insert(scan.id)
     }
-    func deleteScan(_ scan: SpectrumScan) { selectedScanIDs.remove(scan.id); scans.removeAll { $0.id == scan.id }; save() }
-    func deleteScans(at offsets: IndexSet) { offsets.map { scans[$0].id }.forEach { selectedScanIDs.remove($0) }; scans.remove(atOffsets: offsets); save() }
-    func deleteAllScans() { selectedScanIDs.removeAll(); scans.removeAll(); timelineCaptureIndex = nil; save() }
+    func deleteScan(_ scan: SpectrumScan) { selectedScanIDs.remove(scan.id); timelineExportURLs[scan.id] = nil; timelineExportSavedCaptureCounts[scan.id] = nil; scans.removeAll { $0.id == scan.id }; save() }
+    func deleteScans(at offsets: IndexSet) {
+        offsets.map { scans[$0].id }.forEach {
+            selectedScanIDs.remove($0)
+            timelineExportURLs[$0] = nil
+            timelineExportSavedCaptureCounts[$0] = nil
+        }
+        scans.remove(atOffsets: offsets)
+        save()
+    }
+    func deleteAllScans() { selectedScanIDs.removeAll(); timelineExportURLs.removeAll(); timelineExportSavedCaptureCounts.removeAll(); scans.removeAll(); timelineCaptureIndex = nil; save() }
     func renameScan(_ scan: SpectrumScan, to name: String) {
         guard let index = scans.firstIndex(where: { $0.id == scan.id }) else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -259,6 +272,38 @@ final class AppModel: ObservableObject {
     private func updateTimelinePosition(for scan: SpectrumScan) {
         guard let index = timelineCaptureIndex, scan.captureCount > 1 else { timelinePosition = 1; return }
         timelinePosition = Double(min(index, scan.captureCount - 1)) / Double(scan.captureCount - 1)
+    }
+
+    func isTimelineExportCurrent(_ scan: SpectrumScan) -> Bool {
+        timelineExportURLs[scan.id] != nil && timelineExportSavedCaptureCounts[scan.id] == scan.captureCount
+    }
+
+    func exportTimeline(_ scan: SpectrumScan, to url: URL) throws {
+        timelineExportURLs[scan.id] = url
+        try writeTimeline(scan, to: url)
+        timelineExportSavedCaptureCounts[scan.id] = scan.captureCount
+        status = "Exported WWB timeline with \(scan.captureCount) sweeps to \(url.lastPathComponent)"
+    }
+
+    private func markTimelineExportDirty(_ id: UUID) {
+        guard timelineExportURLs[id] != nil else { return }
+        timelineExportSavedCaptureCounts[id] = nil
+    }
+
+    private func saveTimelineIfBound(_ id: UUID) {
+        guard let url = timelineExportURLs[id], let scan = scans.first(where: { $0.id == id }) else { return }
+        do {
+            try writeTimeline(scan, to: url)
+            timelineExportSavedCaptureCounts[id] = scan.captureCount
+        } catch {
+            timelineExportSavedCaptureCounts[id] = nil
+            status = "Automatic WWB save failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func writeTimeline(_ scan: SpectrumScan, to url: URL) throws {
+        let title = ExportFilename.baseName(date: scan.date, location: currentCity, customName: scan.customName)
+        try WWBTimelineExporter.data(for: scan, title: title).write(to: url, options: .atomic)
     }
 
     private struct Stored: Codable { var scans: [SpectrumScan]; var presets: [ScanPreset] }

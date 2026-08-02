@@ -137,6 +137,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             do
             {
+                if (continuous) session?.MarkWwbDirty();
                 IntervalProgress = null; NextScanRemaining = null;
                 Status = $"Scanning {FrequencyText.Short(StartMhz * 1e6)} – {FrequencyText.Short(StopMhz * 1e6)}…";
                 var pointCount = SweepEstimator.PointCount((StopMhz - StartMhz) * 1e6, SelectedRbw, continuous);
@@ -161,6 +162,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 }
                 Status = continuous ? $"Continuous scan • {session.CaptureCount} captures" : $"Captured {points.Count} points";
                 Save(); NotifySpectrum();
+                if (continuous) await SaveTimelineIfBoundAsync(session);
                 if (!continuous) break;
 
                 var deadline = DateTimeOffset.Now.AddSeconds(SelectedInterval.Seconds);
@@ -178,6 +180,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception exception) { Status = exception.Message; }
         finally
         {
+            if (continuous && session is not null) await SaveTimelineIfBoundAsync(session);
             IntervalProgress = null; NextScanRemaining = null; IsScanning = false;
             _scanCancellation.Dispose(); _scanCancellation = null;
         }
@@ -209,6 +212,27 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void RenameScan(SpectrumScan scan, string? name)
     {
         scan.CustomName = name; Save();
+    }
+
+    public void RegisterTimelineExport(SpectrumScan scan, string path) => scan.MarkWwbExported(path);
+
+    private async Task SaveTimelineIfBoundAsync(SpectrumScan scan)
+    {
+        if (scan.TimelineExportPath is not { } path) return;
+        var temporaryPath = path + ".tmp";
+        try
+        {
+            await using (var output = File.Create(temporaryPath))
+                await WwbTimelineExporter.WriteAsync(scan, output, ExportFileName.BaseName(scan.Date, ExportLocation, scan.CustomName));
+            File.Move(temporaryPath, path, true);
+            scan.MarkWwbExported(path);
+        }
+        catch (Exception exception)
+        {
+            scan.MarkWwbDirty();
+            Status = $"Automatic WWB save failed: {exception.Message}";
+            try { if (File.Exists(temporaryPath)) File.Delete(temporaryPath); } catch { }
+        }
     }
 
     private void ShowScan(SpectrumScan scan)

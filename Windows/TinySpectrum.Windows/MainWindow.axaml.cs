@@ -49,7 +49,12 @@ public partial class MainWindow : Window
         });
         if (file is null) return;
         await using var stream = await file.OpenWriteAsync();
-        if (scan.IsContinuous) await WwbTimelineExporter.WriteAsync(scan, stream, baseName);
+        if (stream.CanSeek) stream.SetLength(0);
+        if (scan.IsContinuous)
+        {
+            await WwbTimelineExporter.WriteAsync(scan, stream, baseName);
+            ViewModel.RegisterTimelineExport(scan, file.Path.LocalPath);
+        }
         else await WwbTimelineExporter.WriteCsvAsync(scan.Points, stream);
     }
 

@@ -74,6 +74,11 @@ public sealed class SpectrumScan : INotifyPropertyChanged
     [JsonIgnore] public string Title => CustomName ?? RangeTitle;
     [JsonIgnore] public string DateLabel => $"{Date.LocalDateTime:dd MMM yyyy, HH:mm}";
     [JsonIgnore] public string ResolutionLabel => Rbw;
+    private string? _timelineExportPath;
+    private int? _exportedCaptureCount;
+    [JsonIgnore] public string? TimelineExportPath => _timelineExportPath;
+    [JsonIgnore] public bool IsWwbExportCurrent => _timelineExportPath is not null && _exportedCaptureCount == CaptureCount;
+    [JsonIgnore] public string WwbBorderBrush => IsWwbExportCurrent ? "#32E38A" : "Transparent";
     private string _displayColor = ScanPalette.Colors[0];
     [JsonIgnore]
     public string DisplayColor
@@ -124,6 +129,24 @@ public sealed class SpectrumScan : INotifyPropertyChanged
         OnPropertyChanged(nameof(Points));
         OnPropertyChanged(nameof(CaptureCount));
         OnPropertyChanged(nameof(CaptureLabel));
+        OnPropertyChanged(nameof(IsWwbExportCurrent));
+        OnPropertyChanged(nameof(WwbBorderBrush));
+    }
+
+    public void MarkWwbDirty()
+    {
+        if (_timelineExportPath is null) return;
+        _exportedCaptureCount = null;
+        OnPropertyChanged(nameof(IsWwbExportCurrent));
+        OnPropertyChanged(nameof(WwbBorderBrush));
+    }
+
+    public void MarkWwbExported(string path)
+    {
+        _timelineExportPath = path;
+        _exportedCaptureCount = CaptureCount;
+        OnPropertyChanged(nameof(IsWwbExportCurrent));
+        OnPropertyChanged(nameof(WwbBorderBrush));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
