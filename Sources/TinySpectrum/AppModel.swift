@@ -37,16 +37,16 @@ final class AppModel: ObservableObject {
     private var batteryPollInFlight = false
     private var lastBatteryPoll = Date.distantPast
     private let locationProvider = CityLocationProvider()
-    private let storeURL: URL
+    private let store: ScanStore
     private enum TimingDriver { case resolution, interval }
     private var timingDriver: TimingDriver = .resolution
     private var timelineExportURLs: [UUID: URL] = [:]
 
     init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        storeURL = base.appending(path: "TinySpectrum/scans.json")
-        load()
-        status = "Looking for a TinySA…"
+        store = ScanStore(directory: base.appending(path: "TinySpectrum"))
+        let recovery = load()
+        status = recovery ?? "Looking for a TinySA…"
         locationProvider.requestCity { [weak self] city in
             Task { @MainActor in self?.currentCity = city }
         }
@@ -140,6 +140,7 @@ final class AppModel: ObservableObject {
                     let pointCount = shouldRepeat ? min(145, deviceProfile.maximumPoints) : deviceProfile.maximumPoints
                     let values = try await serial.scan(startHz: startHz, stopHz: stopHz, rbw: effectiveRBW, points: pointCount)
                     let capture = ScanCapture(date: Date(), points: values)
+                    var startedSession: UUID?
                     if shouldRepeat, let groupID = continuousGroupID, let index = scans.firstIndex(where: { $0.id == groupID }) {
                         scans[index].points = values
                         scans[index].captures?.append(capture)
@@ -151,9 +152,17 @@ final class AppModel: ObservableObject {
                         scans.insert(scan, at: 0)
                         showScan(scan)
                         if shouldRepeat { continuousGroupID = scan.id }
+                        startedSession = scan.id
                         status = shouldRepeat ? "Continuous scan • 1 capture" : "Captured \(values.count) points"
                     }
-                    save()
+                    if let startedSession {
+                        persist { try store.startSession(startedSession, firstCapture: capture) }
+                        saveIndex()
+                    } else if let groupID = continuousGroupID {
+                        // A sweep inside an existing session appends one line.
+                        // The metadata index is unchanged, so it is left alone.
+                        persist { try store.append(capture, to: groupID) }
+                    }
                     if shouldRepeat, let continuousGroupID { saveTimelineIfBound(continuousGroupID) }
                     if shouldRepeat, continuous, !Task.isCancelled {
                         let deadline = sweepStarted.addingTimeInterval(scanInterval.seconds)
@@ -238,9 +247,9 @@ final class AppModel: ObservableObject {
     private var scanSpanHz: Double { max(1, stopHz - startHz) }
     func addPreset(name: String) {
         presets.append(.init(id: UUID(), name: name, startHz: startHz, stopHz: stopHz, rbw: rbw, interval: scanInterval))
-        save()
+        saveIndex()
     }
-    func deletePreset(_ preset: ScanPreset) { presets.removeAll { $0.id == preset.id }; save() }
+    func deletePreset(_ preset: ScanPreset) { presets.removeAll { $0.id == preset.id }; saveIndex() }
     func toggleScanVisibility(_ scan: SpectrumScan) {
         if selectedScanIDs.contains(scan.id) {
             selectedScanIDs.remove(scan.id)
@@ -257,22 +266,39 @@ final class AppModel: ObservableObject {
         }
         selectedScanIDs.insert(scan.id)
     }
-    func deleteScan(_ scan: SpectrumScan) { selectedScanIDs.remove(scan.id); timelineExportURLs[scan.id] = nil; timelineExportSavedCaptureCounts[scan.id] = nil; scans.removeAll { $0.id == scan.id }; save() }
+    func deleteScan(_ scan: SpectrumScan) {
+        selectedScanIDs.remove(scan.id)
+        timelineExportURLs[scan.id] = nil
+        timelineExportSavedCaptureCounts[scan.id] = nil
+        scans.removeAll { $0.id == scan.id }
+        store.deleteSessions([scan.id])
+        saveIndex()
+    }
     func deleteScans(at offsets: IndexSet) {
-        offsets.map { scans[$0].id }.forEach {
+        let removed = offsets.map { scans[$0].id }
+        removed.forEach {
             selectedScanIDs.remove($0)
             timelineExportURLs[$0] = nil
             timelineExportSavedCaptureCounts[$0] = nil
         }
         scans.remove(atOffsets: offsets)
-        save()
+        store.deleteSessions(removed)
+        saveIndex()
     }
-    func deleteAllScans() { selectedScanIDs.removeAll(); timelineExportURLs.removeAll(); timelineExportSavedCaptureCounts.removeAll(); scans.removeAll(); timelineCaptureIndex = nil; save() }
+    func deleteAllScans() {
+        selectedScanIDs.removeAll()
+        timelineExportURLs.removeAll()
+        timelineExportSavedCaptureCounts.removeAll()
+        store.deleteSessions(scans.map(\.id))
+        scans.removeAll()
+        timelineCaptureIndex = nil
+        saveIndex()
+    }
     func renameScan(_ scan: SpectrumScan, to name: String) {
         guard let index = scans.firstIndex(where: { $0.id == scan.id }) else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         scans[index].customName = trimmed.isEmpty ? nil : trimmed
-        save()
+        saveIndex()
     }
 
     func setTimelinePosition(_ position: Double) {
@@ -327,13 +353,26 @@ final class AppModel: ObservableObject {
         try WWBTimelineExporter.data(for: scan, title: title).write(to: url, options: .atomic)
     }
 
-    private struct Stored: Codable { var scans: [SpectrumScan]; var presets: [ScanPreset] }
-    private func load() {
-        guard let data = try? Data(contentsOf: storeURL), let value = try? JSONDecoder().decode(Stored.self, from: data) else { return }
-        scans = value.scans; presets = value.presets
+    /// Returns a message to show instead of the usual greeting when the store
+    /// needed recovering, so a damaged library is never quietly ignored.
+    private func load() -> String? {
+        do {
+            guard let contents = try store.load() else { return nil }
+            scans = contents.scans
+            presets = contents.presets
+            return contents.recoveryNote
+        } catch {
+            return error.localizedDescription
+        }
     }
-    private func save() {
-        try? FileManager.default.createDirectory(at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? JSONEncoder().encode(Stored(scans: scans, presets: presets)) { try? data.write(to: storeURL, options: .atomic) }
+
+    /// A failed write means the measurements exist only in memory. The user has
+    /// to learn that before quitting, so these errors reach the status bar.
+    private func persist(_ work: () throws -> Void) {
+        do { try work() } catch { status = "Could not save to disk: \(error.localizedDescription)" }
+    }
+
+    private func saveIndex() {
+        persist { try store.saveIndex(scans: scans, presets: presets) }
     }
 }
