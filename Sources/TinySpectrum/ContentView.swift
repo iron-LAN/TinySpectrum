@@ -9,7 +9,6 @@ struct ContentView: View {
     @State private var presetName = ""
     @State private var draftStartMHz = 0.1
     @State private var draftStopMHz = 800.0
-    @State private var peakHoldEnabled = false
     @State private var scanToRename: SpectrumScan?
     @State private var renameText = ""
     @State private var showingDeleteAllConfirmation = false
@@ -47,8 +46,6 @@ struct ContentView: View {
         .preferredColorScheme(appearance == "dark" ? .dark : .light)
         .tint(Color(red: 0.08, green: 0.72, blue: 0.94))
         .onAppear { syncDraftRange() }
-        .onChange(of: model.startHz) { _ in model.frequencyRangeDidChange() }
-        .onChange(of: model.stopHz) { _ in model.frequencyRangeDidChange() }
         .sheet(item: $scanToRename) { scan in
             VStack(alignment: .leading, spacing: 16) {
                 Text("Rename scan").font(.title2.bold())
@@ -81,23 +78,44 @@ struct ContentView: View {
             HStack {
                 Text("SPECTRUM").font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
-                Toggle(isOn: $peakHoldEnabled) {
-                    Label("Peak Hold", systemImage: "waveform.path.ecg.rectangle")
-                        .font(.caption2.bold())
+                Button("AUTO") { model.autoscaleAmplitude() }
+                    .controlSize(.small)
+                    .disabled(model.selectedScanIDs.isEmpty)
+                    .help("Fit the vertical scale to the scans on screen")
+                Picker("REF", selection: $model.amplitudeScale.referenceLevel) {
+                    ForEach(AmplitudeScale.referenceLevels, id: \.self) { level in
+                        Text("\(Int(level)) dBm").tag(level)
+                    }
                 }
-                .toggleStyle(.button)
-                .controlSize(.small)
-                .tint(.red)
-                .disabled(!model.scans.contains { model.selectedScanIDs.contains($0.id) && $0.isContinuous })
-                .help("Overlay the highest level captured at each frequency in red")
+                .frame(width: 108)
+                .help("Level drawn at the top of the graph")
+                Picker("RANGE", selection: $model.amplitudeScale.range) {
+                    ForEach(AmplitudeScale.ranges, id: \.self) { range in
+                        Text("\(Int(range)) dB").tag(range)
+                    }
+                }
+                .frame(width: 112)
+                .help("How many decibels the graph spans from top to bottom")
+                Picker("", selection: Binding(get: { model.currentTraceMode }, set: { model.setTraceMode($0) })) {
+                    ForEach(TraceMode.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 230)
+                .disabled(model.timelineReferenceScan == nil)
+                .help("How the continuous session on screen is drawn. Max Hold and Average are layered over the live sweep.")
             }
             .padding(12)
             .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
-            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, peakHoldEnabled: peakHoldEnabled)
+            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, scale: model.amplitudeScale, peaks: model.peaks, pinnedPeaks: model.pinnedPeaks)
                 .frame(minHeight: 300, maxHeight: .infinity)
                 .layoutPriority(1)
                 .background(graphBackground, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
+            peakBar
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
             controls.padding(14)
                 .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
@@ -159,9 +177,9 @@ struct ContentView: View {
                 }.disabled(presetName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             HStack(spacing: 10) {
-                Button("SCAN") { model.beginScan() }.buttonStyle(.borderedProminent).tint(.cyan).disabled(!model.isConnected || model.isScanning)
+                Button("SCAN") { startScan(continuous: false) }.buttonStyle(.borderedProminent).tint(.cyan).disabled(!model.isConnected || model.isScanning)
                 Button("STOP") { model.stop() }.buttonStyle(.bordered).tint(.red).disabled(!model.isScanning)
-                Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
+                Button("CONTINUOUS") { startScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
                 Spacer()
                 Picker("Resolution", selection: Binding(get: { model.rbw }, set: { model.selectRBW($0) })) {
                     ForEach(model.availableRBWs) { Text($0.rawValue).tag($0) }
@@ -184,6 +202,63 @@ struct ContentView: View {
                 }
             }.controlSize(.large)
         }
+    }
+
+    /// Sits under the graph rather than in its header, which has no room left
+    /// and no space to grow a list into.
+    private var peakBar: some View {
+        HStack(spacing: 10) {
+            Toggle(isOn: $model.peakSearchEnabled) {
+                Label("PEAKS", systemImage: "mountain.2.fill").font(.caption2.bold())
+            }
+            .toggleStyle(.button)
+            .controlSize(.small)
+            .tint(.yellow)
+            .disabled(model.peakSearchScan == nil)
+            .help("Find the strongest distinct signals in the scan on screen")
+
+            if model.peakSearchEnabled {
+                if model.peaks.isEmpty {
+                    Text("No distinct peaks found").font(.caption2).foregroundStyle(.secondary)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(Array(model.peaks.enumerated()), id: \.element.id) { order, peak in
+                                Button { model.togglePin(peak) } label: { peakChip(order: order, peak: peak) }
+                                    .buttonStyle(.plain)
+                                    .help("Pin to measure against another peak")
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 4)
+            if let delta = model.pinnedDelta {
+                Text("Δ \(SpectrumScan.short(delta.frequency))   \(String(format: "%+.1f dB", delta.level))")
+                    .font(.caption2.monospacedDigit().bold())
+                    .foregroundStyle(.yellow)
+                    .help("Spacing between the two pinned peaks")
+            }
+        }
+        .frame(height: 22)
+    }
+
+    private func peakChip(order: Int, peak: SpectrumPeak) -> some View {
+        let pinned = model.pinnedPeaks.contains(peak)
+        return HStack(spacing: 5) {
+            Text("\(order + 1)")
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .foregroundStyle(pinned ? Color.yellow : .secondary)
+            Text(SpectrumScan.short(peak.frequency)).font(.caption2.monospacedDigit().bold())
+            Text(String(format: "%.1f", peak.level)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(
+            pinned ? Color.yellow.opacity(0.22) : Color.secondary.opacity(0.12),
+            in: Capsule()
+        )
+        .overlay(Capsule().stroke(pinned ? Color.yellow.opacity(0.8) : .clear, lineWidth: 1))
     }
 
     private func frequencyField(_ label: String, value: Binding<Double>) -> some View {
@@ -220,11 +295,26 @@ struct ContentView: View {
         .help("Time remaining until the next continuous scan")
         .accessibilityLabel("Next scan in \(formattedDuration(remaining))")
     }
-    private func applyDraftRange() {
+    /// Clamps whatever is typed in the START/STOP fields and writes it back so
+    /// the fields always show the range that will actually be scanned.
+    private func commitDraftRange() -> (start: Double, stop: Double) {
         let start = max(100_000, min(draftStartMHz * 1e6, model.maxHz - 1))
         let stop = max(start + 1, min(draftStopMHz * 1e6, model.maxHz))
-        model.applyRange(startHz: start, stopHz: stop)
         draftStartMHz = start / 1e6; draftStopMHz = stop / 1e6
+        return (start, stop)
+    }
+
+    private func applyDraftRange() {
+        let range = commitDraftRange()
+        model.applyRange(startHz: range.start, stopHz: range.stop)
+    }
+
+    /// SCAN and CONTINUOUS commit a pending edit first. Without this, typing a
+    /// new range and pressing SCAN sweeps the previous one.
+    private func startScan(continuous: Bool) {
+        let range = commitDraftRange()
+        model.setRange(startHz: range.start, stopHz: range.stop)
+        model.beginScan(continuous: continuous)
     }
 
     private var scanPanel: some View {

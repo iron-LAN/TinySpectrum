@@ -21,6 +21,9 @@ final class AppModel: ObservableObject {
     @Published var selectedScanIDs: Set<UUID> = []
     @Published var timelinePosition = 1.0
     @Published var timelineCaptureIndex: Int?
+    @Published var amplitudeScale = AmplitudeScale.default
+    @Published var peakSearchEnabled = false
+    @Published var pinnedPeaks: [SpectrumPeak] = []
     @Published var batteryMillivolts: Int?
     @Published var deviceProfile = TinySAProfile.regular
     @Published var currentCity: String?
@@ -37,16 +40,16 @@ final class AppModel: ObservableObject {
     private var batteryPollInFlight = false
     private var lastBatteryPoll = Date.distantPast
     private let locationProvider = CityLocationProvider()
-    private let storeURL: URL
+    private let store: ScanStore
     private enum TimingDriver { case resolution, interval }
     private var timingDriver: TimingDriver = .resolution
     private var timelineExportURLs: [UUID: URL] = [:]
 
     init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        storeURL = base.appending(path: "TinySpectrum/scans.json")
-        load()
-        status = "Looking for a TinySA…"
+        store = ScanStore(directory: base.appending(path: "TinySpectrum"))
+        let recovery = load()
+        status = recovery ?? "Looking for a TinySA…"
         locationProvider.requestCity { [weak self] city in
             Task { @MainActor in self?.currentCity = city }
         }
@@ -140,6 +143,7 @@ final class AppModel: ObservableObject {
                     let pointCount = shouldRepeat ? min(145, deviceProfile.maximumPoints) : deviceProfile.maximumPoints
                     let values = try await serial.scan(startHz: startHz, stopHz: stopHz, rbw: effectiveRBW, points: pointCount)
                     let capture = ScanCapture(date: Date(), points: values)
+                    var startedSession: UUID?
                     if shouldRepeat, let groupID = continuousGroupID, let index = scans.firstIndex(where: { $0.id == groupID }) {
                         scans[index].points = values
                         scans[index].captures?.append(capture)
@@ -151,9 +155,17 @@ final class AppModel: ObservableObject {
                         scans.insert(scan, at: 0)
                         showScan(scan)
                         if shouldRepeat { continuousGroupID = scan.id }
+                        startedSession = scan.id
                         status = shouldRepeat ? "Continuous scan • 1 capture" : "Captured \(values.count) points"
                     }
-                    save()
+                    if let startedSession {
+                        persist { try store.startSession(startedSession, firstCapture: capture) }
+                        saveIndex()
+                    } else if let groupID = continuousGroupID {
+                        // A sweep inside an existing session appends one line.
+                        // The metadata index is unchanged, so it is left alone.
+                        persist { try store.append(capture, to: groupID) }
+                    }
                     if shouldRepeat, let continuousGroupID { saveTimelineIfBound(continuousGroupID) }
                     if shouldRepeat, continuous, !Task.isCancelled {
                         let deadline = sweepStarted.addingTimeInterval(scanInterval.seconds)
@@ -188,7 +200,20 @@ final class AppModel: ObservableObject {
         if isScanning { status = "Stopping scan…" }
     }
 
-    func apply(_ preset: ScanPreset) { startHz = preset.startHz; stopHz = preset.stopHz; frequencyRangeDidChange() }
+    func apply(_ preset: ScanPreset) {
+        startHz = preset.startHz
+        stopHz = preset.stopHz
+        guard let savedRBW = preset.rbw, deviceProfile.supports(savedRBW) else {
+            frequencyRangeDidChange()
+            return
+        }
+        // A preset restores the measurement it was saved with. Recomputing the
+        // resolution from the span here would hand back a different
+        // measurement than the one the user stored.
+        timingDriver = .resolution
+        rbw = savedRBW
+        scanInterval = preset.interval ?? SweepEstimator.shortestInterval(spanHz: scanSpanHz, fitting: savedRBW)
+    }
     func selectRBW(_ value: RBW) {
         timingDriver = .resolution
         rbw = value
@@ -209,8 +234,13 @@ final class AppModel: ObservableObject {
     }
     var estimatedSweepDuration: TimeInterval { SweepEstimator.duration(spanHz: scanSpanHz, rbw: rbw) }
     var availableRBWs: [RBW] { RBW.allCases.filter(deviceProfile.supports) }
-    func applyRange(startHz: Double, stopHz: Double) {
+    /// Updates the model only. `beginScan` configures the device as part of the
+    /// sweep, so starting a scan right after this needs no extra round trip.
+    func setRange(startHz: Double, stopHz: Double) {
         self.startHz = startHz; self.stopHz = stopHz; frequencyRangeDidChange()
+    }
+    func applyRange(startHz: Double, stopHz: Double) {
+        setRange(startHz: startHz, stopHz: stopHz)
         guard isConnected else { return }
         Task {
             do { try await serial.configureRange(startHz: startHz, stopHz: stopHz); status = "Range set to \(SpectrumScan.short(startHz)) – \(SpectrumScan.short(stopHz))" }
@@ -218,8 +248,11 @@ final class AppModel: ObservableObject {
         }
     }
     private var scanSpanHz: Double { max(1, stopHz - startHz) }
-    func addPreset(name: String) { presets.append(.init(id: UUID(), name: name, startHz: startHz, stopHz: stopHz)); save() }
-    func deletePreset(_ preset: ScanPreset) { presets.removeAll { $0.id == preset.id }; save() }
+    func addPreset(name: String) {
+        presets.append(.init(id: UUID(), name: name, startHz: startHz, stopHz: stopHz, rbw: rbw, interval: scanInterval))
+        saveIndex()
+    }
+    func deletePreset(_ preset: ScanPreset) { presets.removeAll { $0.id == preset.id }; saveIndex() }
     func toggleScanVisibility(_ scan: SpectrumScan) {
         if selectedScanIDs.contains(scan.id) {
             selectedScanIDs.remove(scan.id)
@@ -236,22 +269,39 @@ final class AppModel: ObservableObject {
         }
         selectedScanIDs.insert(scan.id)
     }
-    func deleteScan(_ scan: SpectrumScan) { selectedScanIDs.remove(scan.id); timelineExportURLs[scan.id] = nil; timelineExportSavedCaptureCounts[scan.id] = nil; scans.removeAll { $0.id == scan.id }; save() }
+    func deleteScan(_ scan: SpectrumScan) {
+        selectedScanIDs.remove(scan.id)
+        timelineExportURLs[scan.id] = nil
+        timelineExportSavedCaptureCounts[scan.id] = nil
+        scans.removeAll { $0.id == scan.id }
+        store.deleteSessions([scan.id])
+        saveIndex()
+    }
     func deleteScans(at offsets: IndexSet) {
-        offsets.map { scans[$0].id }.forEach {
+        let removed = offsets.map { scans[$0].id }
+        removed.forEach {
             selectedScanIDs.remove($0)
             timelineExportURLs[$0] = nil
             timelineExportSavedCaptureCounts[$0] = nil
         }
         scans.remove(atOffsets: offsets)
-        save()
+        store.deleteSessions(removed)
+        saveIndex()
     }
-    func deleteAllScans() { selectedScanIDs.removeAll(); timelineExportURLs.removeAll(); timelineExportSavedCaptureCounts.removeAll(); scans.removeAll(); timelineCaptureIndex = nil; save() }
+    func deleteAllScans() {
+        selectedScanIDs.removeAll()
+        timelineExportURLs.removeAll()
+        timelineExportSavedCaptureCounts.removeAll()
+        store.deleteSessions(scans.map(\.id))
+        scans.removeAll()
+        timelineCaptureIndex = nil
+        saveIndex()
+    }
     func renameScan(_ scan: SpectrumScan, to name: String) {
         guard let index = scans.firstIndex(where: { $0.id == scan.id }) else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         scans[index].customName = trimmed.isEmpty ? nil : trimmed
-        save()
+        saveIndex()
     }
 
     func setTimelinePosition(_ position: Double) {
@@ -265,7 +315,63 @@ final class AppModel: ObservableObject {
         updateTimelinePosition(for: scan)
     }
 
-    private var timelineReferenceScan: SpectrumScan? {
+    /// Levels of every scan currently drawn, at the position the timeline is
+    /// parked on, which is what the vertical scale has to accommodate.
+    var visibleLevels: [Double] {
+        scans.filter { selectedScanIDs.contains($0.id) }
+            .flatMap { $0.points(atCaptureIndex: timelineCaptureIndex).map(\.level) }
+    }
+
+    var currentTraceMode: TraceMode { timelineReferenceScan?.traceMode ?? .live }
+
+    /// Peak search runs on the continuous session when there is one, because
+    /// that is the scan a survey is actually asking about.
+    var peakSearchScan: SpectrumScan? {
+        timelineReferenceScan ?? scans.first { selectedScanIDs.contains($0.id) }
+    }
+
+    /// Peaks of the trace on screen. With Max Hold selected this searches the
+    /// held trace, which is what answers "what has been active in this band".
+    var peaks: [SpectrumPeak] {
+        guard peakSearchEnabled, let scan = peakSearchScan else { return [] }
+        let trace = scan.overlayPoints(atCaptureIndex: timelineCaptureIndex)
+            ?? scan.points(atCaptureIndex: timelineCaptureIndex)
+        return PeakFinder.peaks(in: trace)
+    }
+
+    /// Two pinned peaks give the spacing between them, which is the question
+    /// behind most coordination work.
+    var pinnedDelta: (frequency: Double, level: Double)? {
+        guard pinnedPeaks.count == 2 else { return nil }
+        return (abs(pinnedPeaks[1].frequency - pinnedPeaks[0].frequency),
+                pinnedPeaks[1].level - pinnedPeaks[0].level)
+    }
+
+    func togglePin(_ peak: SpectrumPeak) {
+        if let index = pinnedPeaks.firstIndex(of: peak) {
+            pinnedPeaks.remove(at: index)
+        } else {
+            pinnedPeaks.append(peak)
+            if pinnedPeaks.count > 2 { pinnedPeaks.removeFirst() }
+        }
+    }
+
+    func setTraceMode(_ mode: TraceMode) {
+        guard let scan = timelineReferenceScan,
+              let index = scans.firstIndex(where: { $0.id == scan.id }) else { return }
+        scans[index].traceMode = mode
+        saveIndex()
+    }
+
+    func autoscaleAmplitude() {
+        let levels = visibleLevels
+        guard !levels.isEmpty else { return }
+        amplitudeScale = .fitting(levels: levels)
+    }
+
+    /// The continuous session on screen. Only one is ever visible, so the
+    /// trace-mode control in the header acts on this one.
+    var timelineReferenceScan: SpectrumScan? {
         scans.first { selectedScanIDs.contains($0.id) && $0.isContinuous }
     }
 
@@ -306,13 +412,26 @@ final class AppModel: ObservableObject {
         try WWBTimelineExporter.data(for: scan, title: title).write(to: url, options: .atomic)
     }
 
-    private struct Stored: Codable { var scans: [SpectrumScan]; var presets: [ScanPreset] }
-    private func load() {
-        guard let data = try? Data(contentsOf: storeURL), let value = try? JSONDecoder().decode(Stored.self, from: data) else { return }
-        scans = value.scans; presets = value.presets
+    /// Returns a message to show instead of the usual greeting when the store
+    /// needed recovering, so a damaged library is never quietly ignored.
+    private func load() -> String? {
+        do {
+            guard let contents = try store.load() else { return nil }
+            scans = contents.scans
+            presets = contents.presets
+            return contents.recoveryNote
+        } catch {
+            return error.localizedDescription
+        }
     }
-    private func save() {
-        try? FileManager.default.createDirectory(at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? JSONEncoder().encode(Stored(scans: scans, presets: presets)) { try? data.write(to: storeURL, options: .atomic) }
+
+    /// A failed write means the measurements exist only in memory. The user has
+    /// to learn that before quitting, so these errors reach the status bar.
+    private func persist(_ work: () throws -> Void) {
+        do { try work() } catch { status = "Could not save to disk: \(error.localizedDescription)" }
+    }
+
+    private func saveIndex() {
+        persist { try store.saveIndex(scans: scans, presets: presets) }
     }
 }

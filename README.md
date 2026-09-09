@@ -49,7 +49,9 @@ If you test a device marked “testing requested,” please include its model, f
 - **Adaptive scan intervals** — choose 10 seconds, 30 seconds, 1 minute, 5 minutes, 10 minutes, or 30 minutes.
 - **Resolution-aware timing** — interval and RBW selections adjust each other using the selected frequency span and estimated sweep duration.
 - **Timeline playback** — move through every capture in a continuous session and inspect when activity appeared.
-- **Cumulative Peak Hold** — a red overlay retains the strongest measurement at every frequency and grows as new peaks arrive.
+- **Trace modes** — draw a continuous session live, with cumulative Max Hold, or averaged, layered over the current sweep.
+- **Adjustable vertical scale** — set the reference level and range, fit them to what is on screen, and see when a signal is stronger than the graph can show.
+- **Peak search** — list the strongest distinct signals in a scan, flag them on the graph, and pin two to measure the spacing between them.
 - **Visible scan countdown** — a circular timer shows when the next continuous capture will begin.
 - **Multiple scan overlays** — compare saved scans using distinct trace colors.
 - **Clear continuous timelines** — only one continuous session is displayed at a time, while regular scans remain available as comparison overlays.
@@ -74,11 +76,31 @@ Resolution and interval are linked:
 
 Narrower RBW settings provide more frequency detail but can take considerably longer over a wide span. The displayed sweep time is an estimate; actual timing depends on tinySA firmware, mode, and scan conditions.
 
-## Peak Hold
+## Trace modes
 
-Enable **Peak Hold** above the spectrum graph during a continuous scan. The current sweep remains visible while a red line combines the strongest values observed so far.
+Pick how the continuous session on screen is drawn from the control above the spectrum graph. The current sweep always stays visible; Max Hold and Average are layered over it.
 
-Peak Hold is cumulative during live scanning and timeline playback: lower readings never reduce the stored peak, while later higher readings update only the affected frequencies.
+| Mode | Overlay |
+| --- | --- |
+| Live | None, just the current sweep |
+| Max Hold | A red line holding the strongest value seen at every frequency |
+| Average | A dashed line showing the mean level at every frequency |
+
+Both overlays accumulate up to wherever the timeline is parked, so scrubbing back through a session shows what the overlay looked like at that moment. Lower readings never reduce a held peak, while later higher readings update only the affected frequencies. Each scan remembers its own mode.
+
+## Vertical scale
+
+**REF** sets the level drawn at the top of the graph and **RANGE** sets how many decibels it spans. The defaults match the fixed window used before 3.0, and **AUTO** fits both to the scans on screen.
+
+A sample stronger than the reference level cannot be drawn in place, so the graph marks those frequencies along its top edge and shows an **ABOVE REF** badge while any are hidden. Without it, a clipped signal looks exactly like a genuine flat-topped one.
+
+## Peak search
+
+Turn on **PEAKS** below the graph to find the strongest distinct signals in the scan on screen. Each one is flagged on the spectrum and listed by frequency and level.
+
+Accepted peaks are held apart from one another, so a single wide carrier reports once instead of filling the list with points along its own skirt. When a continuous session is set to Max Hold, the search runs on the held trace, which answers what has been active in the band rather than what happens to be transmitting at this instant.
+
+Select any two peaks to pin them, and the spacing and level difference between them appears at the right of the bar.
 
 ## Spectrum navigation
 
@@ -114,7 +136,7 @@ TinySpectrum requires **macOS 13 Ventura or newer**, or **Windows 10/11 x64**. T
 2. Connect it to the Mac and wait for the green connection indicator.
 3. Select a preset or enter a start and stop frequency.
 4. Choose **Scan** for a single sweep or **Continuous** for a timeline.
-5. Enable **Peak Hold** to retain the strongest signals.
+5. Choose **Max Hold** above the graph to retain the strongest signals.
 6. Select **WWB** beside a saved scan when you are ready to export.
 
 Scans and custom presets are stored at:

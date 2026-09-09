@@ -17,6 +17,14 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
     var points: [ScanPoint]
     var captures: [ScanCapture]?
     var customName: String? = nil
+    /// How the scan is drawn. This is display state rather than measurement
+    /// data, so it stays out of the scan encoding and is carried by the store
+    /// index instead.
+    var traceMode: TraceMode = .live
+
+    private enum CodingKeys: String, CodingKey {
+        case id, date, startHz, stopHz, rbw, points, captures, customName
+    }
     var rangeTitle: String { "\(Self.short(startHz)) – \(Self.short(stopHz))" }
     var title: String {
         let trimmed = customName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -37,6 +45,35 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
         }
         return peak
     }
+    /// Mean level at each frequency across every capture up to `index`.
+    func averagePoints(atCaptureIndex index: Int?) -> [ScanPoint] {
+        guard let captures, let first = captures.first else { return points }
+        let lastIndex = min(captures.count - 1, max(0, index ?? captures.count - 1))
+        var totals = first.points.map(\.level)
+        var counts = [Int](repeating: 1, count: totals.count)
+        for capture in captures.prefix(lastIndex + 1).dropFirst() {
+            for index in 0..<min(totals.count, capture.points.count) {
+                guard abs(first.points[index].frequency - capture.points[index].frequency) < 1 else { continue }
+                totals[index] += capture.points[index].level
+                counts[index] += 1
+            }
+        }
+        return first.points.enumerated().map {
+            ScanPoint(frequency: $0.element.frequency, level: totals[$0.offset] / Double(counts[$0.offset]))
+        }
+    }
+
+    /// The accumulated trace drawn on top of the live sweep, or `nil` when
+    /// there is nothing to accumulate.
+    func overlayPoints(atCaptureIndex index: Int?) -> [ScanPoint]? {
+        guard isContinuous else { return nil }
+        switch traceMode {
+        case .live: return nil
+        case .maxHold: return peakHoldPoints(atCaptureIndex: index)
+        case .average: return averagePoints(atCaptureIndex: index)
+        }
+    }
+
     func points(at timelinePosition: Double) -> [ScanPoint] {
         guard let captures, !captures.isEmpty else { return points }
         let index = min(captures.count - 1, max(0, Int((timelinePosition * Double(captures.count - 1)).rounded())))
@@ -65,14 +102,34 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
     }
 }
 
+/// How a saved scan is drawn. Only a continuous session has anything to
+/// accumulate, so a single sweep is always live.
+enum TraceMode: String, CaseIterable, Identifiable, Codable {
+    case live, maxHold, average
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .live: "Live"
+        case .maxHold: "Max Hold"
+        case .average: "Average"
+        }
+    }
+}
+
 struct ScanPreset: Codable, Identifiable, Hashable {
     let id: UUID
     var name: String
     var startHz: Double
     var stopHz: Double
+    // Presets written before 3.0 carry no measurement settings. Recalling one
+    // of those keeps the resolution and interval that are already selected
+    // rather than silently recomputing them from the span.
+    var rbw: RBW? = nil
+    var interval: ScanInterval? = nil
 }
 
-enum RBW: String, CaseIterable, Identifiable {
+enum RBW: String, CaseIterable, Identifiable, Codable {
     case hz200 = "200 Hz", khz1 = "1 kHz", khz3 = "3 kHz"
     case khz10 = "10 kHz", khz30 = "30 kHz (AD600 scan)", khz100 = "100 kHz"
     case khz300 = "300 kHz (AD600 live)", khz600 = "600 kHz", khz850 = "850 kHz"
@@ -103,6 +160,26 @@ enum RBW: String, CaseIterable, Identifiable {
         case .khz850: "850"
         }
     }
+
+    // Persist the bandwidth, not the display label. The labels carry product
+    // names that may be reworded, and a stored value that no longer decodes
+    // would take the whole scan store down with it.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let hertz = try container.decode(Double.self)
+        guard let match = RBW.allCases.first(where: { $0.bandwidthHz == hertz }) else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unknown resolution bandwidth \(hertz) Hz"
+            )
+        }
+        self = match
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(bandwidthHz)
+    }
 }
 
 struct TinySAProfile: Equatable {
@@ -129,7 +206,7 @@ struct TinySAProfile: Equatable {
     }
 }
 
-enum ScanInterval: Int, CaseIterable, Identifiable {
+enum ScanInterval: Int, CaseIterable, Identifiable, Codable {
     case seconds10 = 10
     case seconds30 = 30
     case minute1 = 60
@@ -179,6 +256,70 @@ enum SweepEstimator {
     static func shortestInterval(spanHz: Double, fitting rbw: RBW) -> ScanInterval {
         let estimate = duration(spanHz: spanHz, rbw: rbw)
         return ScanInterval.allCases.first { estimate <= $0.seconds } ?? .minutes30
+    }
+}
+
+struct SpectrumPeak: Identifiable, Hashable {
+    let frequency: Double
+    let level: Double
+    var id: Double { frequency }
+}
+
+enum PeakFinder {
+    /// Local maxima in a trace, strongest first.
+    ///
+    /// Accepted peaks are kept at least `minimumSpacingHz` apart, so one broad
+    /// carrier cannot fill the list with its own shoulders. That is the failure
+    /// which makes a naive peak list useless for coordination work: the answer
+    /// wanted is which distinct signals are present, not which sample is
+    /// highest.
+    static func peaks(in points: [ScanPoint], limit: Int = 8, minimumSpacingHz: Double? = nil) -> [SpectrumPeak] {
+        guard points.count >= 3 else { return [] }
+        let span = abs((points.last?.frequency ?? 0) - (points.first?.frequency ?? 0))
+        let spacing = minimumSpacingHz ?? max(1, span / 40)
+
+        var candidates: [SpectrumPeak] = []
+        for index in 1..<(points.count - 1) {
+            let current = points[index].level
+            // Strictly greater on one side and greater-or-equal on the other
+            // takes a single point off a flat top rather than every sample
+            // across it.
+            guard current > points[index - 1].level, current >= points[index + 1].level else { continue }
+            candidates.append(SpectrumPeak(frequency: points[index].frequency, level: current))
+        }
+
+        var accepted: [SpectrumPeak] = []
+        for peak in candidates.sorted(by: { $0.level > $1.level }) {
+            guard accepted.allSatisfy({ abs($0.frequency - peak.frequency) >= spacing }) else { continue }
+            accepted.append(peak)
+            if accepted.count == limit { break }
+        }
+        return accepted
+    }
+}
+
+/// Vertical extent of the spectrum graph, in dBm.
+///
+/// The defaults reproduce the fixed -120 to -20 dBm window the graph used
+/// before 3.0, so a scale nobody has touched draws exactly as it did.
+struct AmplitudeScale: Equatable, Codable {
+    var referenceLevel: Double
+    var range: Double
+
+    static let `default` = AmplitudeScale(referenceLevel: -20, range: 100)
+    static let referenceLevels: [Double] = [0, -10, -20, -30, -40, -50]
+    static let ranges: [Double] = [40, 60, 80, 100, 120]
+
+    var maximum: Double { referenceLevel }
+    var minimum: Double { referenceLevel - range }
+
+    /// Fits the visible levels with a little headroom, snapped to the values
+    /// the pickers offer so the controls always describe the scale on screen.
+    static func fitting(levels: [Double]) -> AmplitudeScale {
+        guard let highest = levels.max(), let lowest = levels.min() else { return .default }
+        let reference = referenceLevels.filter { $0 >= highest + 5 }.min() ?? referenceLevels[0]
+        let needed = reference - (lowest - 5)
+        return AmplitudeScale(referenceLevel: reference, range: ranges.first { $0 >= needed } ?? ranges.last ?? 100)
     }
 }
 
