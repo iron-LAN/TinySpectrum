@@ -17,6 +17,14 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
     var points: [ScanPoint]
     var captures: [ScanCapture]?
     var customName: String? = nil
+    /// How the scan is drawn. This is display state rather than measurement
+    /// data, so it stays out of the scan encoding and is carried by the store
+    /// index instead.
+    var traceMode: TraceMode = .live
+
+    private enum CodingKeys: String, CodingKey {
+        case id, date, startHz, stopHz, rbw, points, captures, customName
+    }
     var rangeTitle: String { "\(Self.short(startHz)) – \(Self.short(stopHz))" }
     var title: String {
         let trimmed = customName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -37,6 +45,35 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
         }
         return peak
     }
+    /// Mean level at each frequency across every capture up to `index`.
+    func averagePoints(atCaptureIndex index: Int?) -> [ScanPoint] {
+        guard let captures, let first = captures.first else { return points }
+        let lastIndex = min(captures.count - 1, max(0, index ?? captures.count - 1))
+        var totals = first.points.map(\.level)
+        var counts = [Int](repeating: 1, count: totals.count)
+        for capture in captures.prefix(lastIndex + 1).dropFirst() {
+            for index in 0..<min(totals.count, capture.points.count) {
+                guard abs(first.points[index].frequency - capture.points[index].frequency) < 1 else { continue }
+                totals[index] += capture.points[index].level
+                counts[index] += 1
+            }
+        }
+        return first.points.enumerated().map {
+            ScanPoint(frequency: $0.element.frequency, level: totals[$0.offset] / Double(counts[$0.offset]))
+        }
+    }
+
+    /// The accumulated trace drawn on top of the live sweep, or `nil` when
+    /// there is nothing to accumulate.
+    func overlayPoints(atCaptureIndex index: Int?) -> [ScanPoint]? {
+        guard isContinuous else { return nil }
+        switch traceMode {
+        case .live: return nil
+        case .maxHold: return peakHoldPoints(atCaptureIndex: index)
+        case .average: return averagePoints(atCaptureIndex: index)
+        }
+    }
+
     func points(at timelinePosition: Double) -> [ScanPoint] {
         guard let captures, !captures.isEmpty else { return points }
         let index = min(captures.count - 1, max(0, Int((timelinePosition * Double(captures.count - 1)).rounded())))
@@ -62,6 +99,21 @@ struct SpectrumScan: Codable, Identifiable, Hashable {
         if hz >= 1e6 { return String(format: "%.3g MHz", hz / 1e6) }
         if hz >= 1e3 { return String(format: "%.3g kHz", hz / 1e3) }
         return String(format: "%.0f Hz", hz)
+    }
+}
+
+/// How a saved scan is drawn. Only a continuous session has anything to
+/// accumulate, so a single sweep is always live.
+enum TraceMode: String, CaseIterable, Identifiable, Codable {
+    case live, maxHold, average
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .live: "Live"
+        case .maxHold: "Max Hold"
+        case .average: "Average"
+        }
     }
 }
 

@@ -13,7 +13,6 @@ struct SpectrumView: View {
     let selected: Set<UUID>
     let timelinePosition: Double
     let timelineCaptureIndex: Int?
-    let peakHoldEnabled: Bool
     let scale: AmplitudeScale
     @State private var hover: HoverSample?
     @State private var frequencyWindow: ClosedRange<Double>?
@@ -22,7 +21,8 @@ struct SpectrumView: View {
     var visible: [(Int, SpectrumScan)] { scans.enumerated().filter { selected.contains($0.element.id) } }
     private var allPoints: [ScanPoint] {
         visible.flatMap { _, scan in
-            scan.points(atCaptureIndex: timelineCaptureIndex) + (peakHoldEnabled && scan.isContinuous ? scan.peakHoldPoints(atCaptureIndex: timelineCaptureIndex) : [])
+            scan.points(atCaptureIndex: timelineCaptureIndex)
+                + (scan.overlayPoints(atCaptureIndex: timelineCaptureIndex) ?? [])
         }
     }
 
@@ -59,13 +59,26 @@ struct SpectrumView: View {
                                 overRange.addRect(CGRect(x: x - 1, y: plot.minY, width: 2, height: 5))
                             }
                             layer.fill(overRange, with: .color(color))
-                            if peakHoldEnabled, scan.isContinuous {
-                                var peakPath = Path()
-                                for (i, point) in scan.peakHoldPoints(atCaptureIndex: timelineCaptureIndex).enumerated() {
+                            if let overlay = scan.overlayPoints(atCaptureIndex: timelineCaptureIndex) {
+                                var overlayPath = Path()
+                                for (i, point) in overlay.enumerated() {
                                     let location = screenLocation(point, plot: plot, bounds: bounds)
-                                    if i == 0 { peakPath.move(to: location) } else { peakPath.addLine(to: location) }
+                                    if i == 0 { overlayPath.move(to: location) } else { overlayPath.addLine(to: location) }
                                 }
-                                layer.stroke(peakPath, with: .color(.red), lineWidth: 1.3)
+                                // Max hold keeps the red line the app has always
+                                // drawn; an average is the same trace dashed, so
+                                // the two are never confused for one another.
+                                switch scan.traceMode {
+                                case .live: break
+                                case .maxHold:
+                                    layer.stroke(overlayPath, with: .color(.red), lineWidth: 1.3)
+                                case .average:
+                                    layer.stroke(
+                                        overlayPath,
+                                        with: .color(color),
+                                        style: StrokeStyle(lineWidth: 1.3, dash: [5, 3])
+                                    )
+                                }
                             }
                         }
                         if let hover {

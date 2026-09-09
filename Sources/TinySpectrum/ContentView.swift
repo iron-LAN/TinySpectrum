@@ -9,7 +9,6 @@ struct ContentView: View {
     @State private var presetName = ""
     @State private var draftStartMHz = 0.1
     @State private var draftStopMHz = 800.0
-    @State private var peakHoldEnabled = false
     @State private var scanToRename: SpectrumScan?
     @State private var renameText = ""
     @State private var showingDeleteAllConfirmation = false
@@ -97,20 +96,18 @@ struct ContentView: View {
                 }
                 .frame(width: 112)
                 .help("How many decibels the graph spans from top to bottom")
-                Toggle(isOn: $peakHoldEnabled) {
-                    Label("Peak Hold", systemImage: "waveform.path.ecg.rectangle")
-                        .font(.caption2.bold())
+                Picker("", selection: Binding(get: { model.currentTraceMode }, set: { model.setTraceMode($0) })) {
+                    ForEach(TraceMode.allCases) { Text($0.label).tag($0) }
                 }
-                .toggleStyle(.button)
-                .controlSize(.small)
-                .tint(.red)
-                .disabled(!model.scans.contains { model.selectedScanIDs.contains($0.id) && $0.isContinuous })
-                .help("Overlay the highest level captured at each frequency in red")
+                .pickerStyle(.segmented)
+                .frame(width: 230)
+                .disabled(model.timelineReferenceScan == nil)
+                .help("How the continuous session on screen is drawn. Max Hold and Average are layered over the live sweep.")
             }
             .padding(12)
             .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
-            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, peakHoldEnabled: peakHoldEnabled, scale: model.amplitudeScale)
+            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, scale: model.amplitudeScale)
                 .frame(minHeight: 300, maxHeight: .infinity)
                 .layoutPriority(1)
                 .background(graphBackground, in: RoundedRectangle(cornerRadius: 10))

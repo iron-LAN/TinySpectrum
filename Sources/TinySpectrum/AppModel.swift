@@ -320,13 +320,24 @@ final class AppModel: ObservableObject {
             .flatMap { $0.points(atCaptureIndex: timelineCaptureIndex).map(\.level) }
     }
 
+    var currentTraceMode: TraceMode { timelineReferenceScan?.traceMode ?? .live }
+
+    func setTraceMode(_ mode: TraceMode) {
+        guard let scan = timelineReferenceScan,
+              let index = scans.firstIndex(where: { $0.id == scan.id }) else { return }
+        scans[index].traceMode = mode
+        saveIndex()
+    }
+
     func autoscaleAmplitude() {
         let levels = visibleLevels
         guard !levels.isEmpty else { return }
         amplitudeScale = .fitting(levels: levels)
     }
 
-    private var timelineReferenceScan: SpectrumScan? {
+    /// The continuous session on screen. Only one is ever visible, so the
+    /// trace-mode control in the header acts on this one.
+    var timelineReferenceScan: SpectrumScan? {
         scans.first { selectedScanIDs.contains($0.id) && $0.isContinuous }
     }
 

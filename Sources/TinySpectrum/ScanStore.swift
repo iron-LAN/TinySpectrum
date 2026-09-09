@@ -71,7 +71,8 @@ struct ScanStore {
                     rbw: record.rbw,
                     points: latest.points,
                     captures: record.isContinuous ? session.captures : nil,
-                    customName: record.customName
+                    customName: record.customName,
+                    traceMode: record.traceMode ?? .live
                 )
             )
         }
@@ -181,6 +182,8 @@ struct ScanStore {
         var rbw: String
         var customName: String?
         var isContinuous: Bool
+        /// Optional so an index written by an earlier 3.0 build still reads.
+        var traceMode: TraceMode?
 
         init(scan: SpectrumScan) {
             id = scan.id
@@ -190,6 +193,7 @@ struct ScanStore {
             rbw = scan.rbw
             customName = scan.customName
             isContinuous = scan.isContinuous
+            traceMode = scan.traceMode
         }
     }
 
