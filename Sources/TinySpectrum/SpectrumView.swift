@@ -14,6 +14,8 @@ struct SpectrumView: View {
     let timelinePosition: Double
     let timelineCaptureIndex: Int?
     let scale: AmplitudeScale
+    let peaks: [SpectrumPeak]
+    let pinnedPeaks: [SpectrumPeak]
     @State private var hover: HoverSample?
     @State private var frequencyWindow: ClosedRange<Double>?
     @State private var dragStartWindow: ClosedRange<Double>?
@@ -80,6 +82,29 @@ struct SpectrumView: View {
                                     )
                                 }
                             }
+                        }
+                        for (order, peak) in peaks.enumerated()
+                        where peak.frequency >= bounds.minF && peak.frequency <= bounds.maxF {
+                            let anchor = screenLocation(
+                                ScanPoint(frequency: peak.frequency, level: peak.level),
+                                plot: plot,
+                                bounds: bounds
+                            )
+                            let isPinned = pinnedPeaks.contains(peak)
+                            let tint = isPinned ? Color.yellow : Color.white.opacity(0.7)
+                            var flag = Path()
+                            flag.move(to: .init(x: anchor.x, y: anchor.y - 6))
+                            flag.addLine(to: .init(x: anchor.x - 4, y: anchor.y - 13))
+                            flag.addLine(to: .init(x: anchor.x + 4, y: anchor.y - 13))
+                            flag.closeSubpath()
+                            layer.fill(flag, with: .color(tint))
+                            layer.draw(
+                                Text("\(order + 1)")
+                                    .font(.system(size: 8, weight: .heavy, design: .rounded))
+                                    .foregroundColor(tint),
+                                at: .init(x: anchor.x, y: anchor.y - 20),
+                                anchor: .center
+                            )
                         }
                         if let hover {
                             var vertical = Path(); vertical.move(to: .init(x: hover.location.x, y: plot.minY)); vertical.addLine(to: .init(x: hover.location.x, y: plot.maxY))

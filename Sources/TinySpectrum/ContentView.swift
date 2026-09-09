@@ -107,10 +107,15 @@ struct ContentView: View {
             .padding(12)
             .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
-            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, scale: model.amplitudeScale)
+            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, scale: model.amplitudeScale, peaks: model.peaks, pinnedPeaks: model.pinnedPeaks)
                 .frame(minHeight: 300, maxHeight: .infinity)
                 .layoutPriority(1)
                 .background(graphBackground, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
+            peakBar
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
             controls.padding(14)
                 .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
@@ -197,6 +202,63 @@ struct ContentView: View {
                 }
             }.controlSize(.large)
         }
+    }
+
+    /// Sits under the graph rather than in its header, which has no room left
+    /// and no space to grow a list into.
+    private var peakBar: some View {
+        HStack(spacing: 10) {
+            Toggle(isOn: $model.peakSearchEnabled) {
+                Label("PEAKS", systemImage: "mountain.2.fill").font(.caption2.bold())
+            }
+            .toggleStyle(.button)
+            .controlSize(.small)
+            .tint(.yellow)
+            .disabled(model.peakSearchScan == nil)
+            .help("Find the strongest distinct signals in the scan on screen")
+
+            if model.peakSearchEnabled {
+                if model.peaks.isEmpty {
+                    Text("No distinct peaks found").font(.caption2).foregroundStyle(.secondary)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(Array(model.peaks.enumerated()), id: \.element.id) { order, peak in
+                                Button { model.togglePin(peak) } label: { peakChip(order: order, peak: peak) }
+                                    .buttonStyle(.plain)
+                                    .help("Pin to measure against another peak")
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 4)
+            if let delta = model.pinnedDelta {
+                Text("Δ \(SpectrumScan.short(delta.frequency))   \(String(format: "%+.1f dB", delta.level))")
+                    .font(.caption2.monospacedDigit().bold())
+                    .foregroundStyle(.yellow)
+                    .help("Spacing between the two pinned peaks")
+            }
+        }
+        .frame(height: 22)
+    }
+
+    private func peakChip(order: Int, peak: SpectrumPeak) -> some View {
+        let pinned = model.pinnedPeaks.contains(peak)
+        return HStack(spacing: 5) {
+            Text("\(order + 1)")
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .foregroundStyle(pinned ? Color.yellow : .secondary)
+            Text(SpectrumScan.short(peak.frequency)).font(.caption2.monospacedDigit().bold())
+            Text(String(format: "%.1f", peak.level)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(
+            pinned ? Color.yellow.opacity(0.22) : Color.secondary.opacity(0.12),
+            in: Capsule()
+        )
+        .overlay(Capsule().stroke(pinned ? Color.yellow.opacity(0.8) : .clear, lineWidth: 1))
     }
 
     private func frequencyField(_ label: String, value: Binding<Double>) -> some View {

@@ -22,6 +22,8 @@ final class AppModel: ObservableObject {
     @Published var timelinePosition = 1.0
     @Published var timelineCaptureIndex: Int?
     @Published var amplitudeScale = AmplitudeScale.default
+    @Published var peakSearchEnabled = false
+    @Published var pinnedPeaks: [SpectrumPeak] = []
     @Published var batteryMillivolts: Int?
     @Published var deviceProfile = TinySAProfile.regular
     @Published var currentCity: String?
@@ -321,6 +323,38 @@ final class AppModel: ObservableObject {
     }
 
     var currentTraceMode: TraceMode { timelineReferenceScan?.traceMode ?? .live }
+
+    /// Peak search runs on the continuous session when there is one, because
+    /// that is the scan a survey is actually asking about.
+    var peakSearchScan: SpectrumScan? {
+        timelineReferenceScan ?? scans.first { selectedScanIDs.contains($0.id) }
+    }
+
+    /// Peaks of the trace on screen. With Max Hold selected this searches the
+    /// held trace, which is what answers "what has been active in this band".
+    var peaks: [SpectrumPeak] {
+        guard peakSearchEnabled, let scan = peakSearchScan else { return [] }
+        let trace = scan.overlayPoints(atCaptureIndex: timelineCaptureIndex)
+            ?? scan.points(atCaptureIndex: timelineCaptureIndex)
+        return PeakFinder.peaks(in: trace)
+    }
+
+    /// Two pinned peaks give the spacing between them, which is the question
+    /// behind most coordination work.
+    var pinnedDelta: (frequency: Double, level: Double)? {
+        guard pinnedPeaks.count == 2 else { return nil }
+        return (abs(pinnedPeaks[1].frequency - pinnedPeaks[0].frequency),
+                pinnedPeaks[1].level - pinnedPeaks[0].level)
+    }
+
+    func togglePin(_ peak: SpectrumPeak) {
+        if let index = pinnedPeaks.firstIndex(of: peak) {
+            pinnedPeaks.remove(at: index)
+        } else {
+            pinnedPeaks.append(peak)
+            if pinnedPeaks.count > 2 { pinnedPeaks.removeFirst() }
+        }
+    }
 
     func setTraceMode(_ mode: TraceMode) {
         guard let scan = timelineReferenceScan,

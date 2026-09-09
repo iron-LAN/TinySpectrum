@@ -259,6 +259,45 @@ enum SweepEstimator {
     }
 }
 
+struct SpectrumPeak: Identifiable, Hashable {
+    let frequency: Double
+    let level: Double
+    var id: Double { frequency }
+}
+
+enum PeakFinder {
+    /// Local maxima in a trace, strongest first.
+    ///
+    /// Accepted peaks are kept at least `minimumSpacingHz` apart, so one broad
+    /// carrier cannot fill the list with its own shoulders. That is the failure
+    /// which makes a naive peak list useless for coordination work: the answer
+    /// wanted is which distinct signals are present, not which sample is
+    /// highest.
+    static func peaks(in points: [ScanPoint], limit: Int = 8, minimumSpacingHz: Double? = nil) -> [SpectrumPeak] {
+        guard points.count >= 3 else { return [] }
+        let span = abs((points.last?.frequency ?? 0) - (points.first?.frequency ?? 0))
+        let spacing = minimumSpacingHz ?? max(1, span / 40)
+
+        var candidates: [SpectrumPeak] = []
+        for index in 1..<(points.count - 1) {
+            let current = points[index].level
+            // Strictly greater on one side and greater-or-equal on the other
+            // takes a single point off a flat top rather than every sample
+            // across it.
+            guard current > points[index - 1].level, current >= points[index + 1].level else { continue }
+            candidates.append(SpectrumPeak(frequency: points[index].frequency, level: current))
+        }
+
+        var accepted: [SpectrumPeak] = []
+        for peak in candidates.sorted(by: { $0.level > $1.level }) {
+            guard accepted.allSatisfy({ abs($0.frequency - peak.frequency) >= spacing }) else { continue }
+            accepted.append(peak)
+            if accepted.count == limit { break }
+        }
+        return accepted
+    }
+}
+
 /// Vertical extent of the spectrum graph, in dBm.
 ///
 /// The defaults reproduce the fixed -120 to -20 dBm window the graph used
