@@ -70,9 +70,14 @@ struct ScanPreset: Codable, Identifiable, Hashable {
     var name: String
     var startHz: Double
     var stopHz: Double
+    // Presets written before 3.0 carry no measurement settings. Recalling one
+    // of those keeps the resolution and interval that are already selected
+    // rather than silently recomputing them from the span.
+    var rbw: RBW? = nil
+    var interval: ScanInterval? = nil
 }
 
-enum RBW: String, CaseIterable, Identifiable {
+enum RBW: String, CaseIterable, Identifiable, Codable {
     case hz200 = "200 Hz", khz1 = "1 kHz", khz3 = "3 kHz"
     case khz10 = "10 kHz", khz30 = "30 kHz (AD600 scan)", khz100 = "100 kHz"
     case khz300 = "300 kHz (AD600 live)", khz600 = "600 kHz", khz850 = "850 kHz"
@@ -103,6 +108,26 @@ enum RBW: String, CaseIterable, Identifiable {
         case .khz850: "850"
         }
     }
+
+    // Persist the bandwidth, not the display label. The labels carry product
+    // names that may be reworded, and a stored value that no longer decodes
+    // would take the whole scan store down with it.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let hertz = try container.decode(Double.self)
+        guard let match = RBW.allCases.first(where: { $0.bandwidthHz == hertz }) else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unknown resolution bandwidth \(hertz) Hz"
+            )
+        }
+        self = match
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(bandwidthHz)
+    }
 }
 
 struct TinySAProfile: Equatable {
@@ -129,7 +154,7 @@ struct TinySAProfile: Equatable {
     }
 }
 
-enum ScanInterval: Int, CaseIterable, Identifiable {
+enum ScanInterval: Int, CaseIterable, Identifiable, Codable {
     case seconds10 = 10
     case seconds30 = 30
     case minute1 = 60

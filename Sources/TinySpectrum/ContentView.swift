@@ -47,8 +47,6 @@ struct ContentView: View {
         .preferredColorScheme(appearance == "dark" ? .dark : .light)
         .tint(Color(red: 0.08, green: 0.72, blue: 0.94))
         .onAppear { syncDraftRange() }
-        .onChange(of: model.startHz) { _ in model.frequencyRangeDidChange() }
-        .onChange(of: model.stopHz) { _ in model.frequencyRangeDidChange() }
         .sheet(item: $scanToRename) { scan in
             VStack(alignment: .leading, spacing: 16) {
                 Text("Rename scan").font(.title2.bold())
@@ -159,9 +157,9 @@ struct ContentView: View {
                 }.disabled(presetName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             HStack(spacing: 10) {
-                Button("SCAN") { model.beginScan() }.buttonStyle(.borderedProminent).tint(.cyan).disabled(!model.isConnected || model.isScanning)
+                Button("SCAN") { startScan(continuous: false) }.buttonStyle(.borderedProminent).tint(.cyan).disabled(!model.isConnected || model.isScanning)
                 Button("STOP") { model.stop() }.buttonStyle(.bordered).tint(.red).disabled(!model.isScanning)
-                Button("CONTINUOUS") { model.beginScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
+                Button("CONTINUOUS") { startScan(continuous: true) }.buttonStyle(.borderedProminent).tint(.purple).disabled(!model.isConnected || model.isScanning)
                 Spacer()
                 Picker("Resolution", selection: Binding(get: { model.rbw }, set: { model.selectRBW($0) })) {
                     ForEach(model.availableRBWs) { Text($0.rawValue).tag($0) }
@@ -220,11 +218,26 @@ struct ContentView: View {
         .help("Time remaining until the next continuous scan")
         .accessibilityLabel("Next scan in \(formattedDuration(remaining))")
     }
-    private func applyDraftRange() {
+    /// Clamps whatever is typed in the START/STOP fields and writes it back so
+    /// the fields always show the range that will actually be scanned.
+    private func commitDraftRange() -> (start: Double, stop: Double) {
         let start = max(100_000, min(draftStartMHz * 1e6, model.maxHz - 1))
         let stop = max(start + 1, min(draftStopMHz * 1e6, model.maxHz))
-        model.applyRange(startHz: start, stopHz: stop)
         draftStartMHz = start / 1e6; draftStopMHz = stop / 1e6
+        return (start, stop)
+    }
+
+    private func applyDraftRange() {
+        let range = commitDraftRange()
+        model.applyRange(startHz: range.start, stopHz: range.stop)
+    }
+
+    /// SCAN and CONTINUOUS commit a pending edit first. Without this, typing a
+    /// new range and pressing SCAN sweeps the previous one.
+    private func startScan(continuous: Bool) {
+        let range = commitDraftRange()
+        model.setRange(startHz: range.start, stopHz: range.stop)
+        model.beginScan(continuous: continuous)
     }
 
     private var scanPanel: some View {

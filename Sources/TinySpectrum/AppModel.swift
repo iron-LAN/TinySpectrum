@@ -188,7 +188,20 @@ final class AppModel: ObservableObject {
         if isScanning { status = "Stopping scan…" }
     }
 
-    func apply(_ preset: ScanPreset) { startHz = preset.startHz; stopHz = preset.stopHz; frequencyRangeDidChange() }
+    func apply(_ preset: ScanPreset) {
+        startHz = preset.startHz
+        stopHz = preset.stopHz
+        guard let savedRBW = preset.rbw, deviceProfile.supports(savedRBW) else {
+            frequencyRangeDidChange()
+            return
+        }
+        // A preset restores the measurement it was saved with. Recomputing the
+        // resolution from the span here would hand back a different
+        // measurement than the one the user stored.
+        timingDriver = .resolution
+        rbw = savedRBW
+        scanInterval = preset.interval ?? SweepEstimator.shortestInterval(spanHz: scanSpanHz, fitting: savedRBW)
+    }
     func selectRBW(_ value: RBW) {
         timingDriver = .resolution
         rbw = value
@@ -209,8 +222,13 @@ final class AppModel: ObservableObject {
     }
     var estimatedSweepDuration: TimeInterval { SweepEstimator.duration(spanHz: scanSpanHz, rbw: rbw) }
     var availableRBWs: [RBW] { RBW.allCases.filter(deviceProfile.supports) }
-    func applyRange(startHz: Double, stopHz: Double) {
+    /// Updates the model only. `beginScan` configures the device as part of the
+    /// sweep, so starting a scan right after this needs no extra round trip.
+    func setRange(startHz: Double, stopHz: Double) {
         self.startHz = startHz; self.stopHz = stopHz; frequencyRangeDidChange()
+    }
+    func applyRange(startHz: Double, stopHz: Double) {
+        setRange(startHz: startHz, stopHz: stopHz)
         guard isConnected else { return }
         Task {
             do { try await serial.configureRange(startHz: startHz, stopHz: stopHz); status = "Range set to \(SpectrumScan.short(startHz)) – \(SpectrumScan.short(stopHz))" }
@@ -218,7 +236,10 @@ final class AppModel: ObservableObject {
         }
     }
     private var scanSpanHz: Double { max(1, stopHz - startHz) }
-    func addPreset(name: String) { presets.append(.init(id: UUID(), name: name, startHz: startHz, stopHz: stopHz)); save() }
+    func addPreset(name: String) {
+        presets.append(.init(id: UUID(), name: name, startHz: startHz, stopHz: stopHz, rbw: rbw, interval: scanInterval))
+        save()
+    }
     func deletePreset(_ preset: ScanPreset) { presets.removeAll { $0.id == preset.id }; save() }
     func toggleScanVisibility(_ scan: SpectrumScan) {
         if selectedScanIDs.contains(scan.id) {
