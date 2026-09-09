@@ -14,6 +14,7 @@ struct SpectrumView: View {
     let timelinePosition: Double
     let timelineCaptureIndex: Int?
     let peakHoldEnabled: Bool
+    let scale: AmplitudeScale
     @State private var hover: HoverSample?
     @State private var frequencyWindow: ClosedRange<Double>?
     @State private var dragStartWindow: ClosedRange<Double>?
@@ -40,12 +41,24 @@ struct SpectrumView: View {
                     context.drawLayer { layer in
                         layer.clip(to: Path(roundedRect: plot, cornerRadius: 8))
                         for (index, scan) in visible {
+                            let color = Palette.color(index, scheme: colorScheme)
+                            let points = scan.points(atCaptureIndex: timelineCaptureIndex)
                             var path = Path()
-                            for (i, point) in scan.points(atCaptureIndex: timelineCaptureIndex).enumerated() {
+                            for (i, point) in points.enumerated() {
                                 let location = screenLocation(point, plot: plot, bounds: bounds)
                                 if i == 0 { path.move(to: location) } else { path.addLine(to: location) }
                             }
-                            layer.stroke(path, with: .color(Palette.color(index, scheme: colorScheme)), lineWidth: 1.8)
+                            layer.stroke(path, with: .color(color), lineWidth: 1.8)
+                            // A sample stronger than the reference level is
+                            // drawn flat against the top edge, where it looks
+                            // exactly like a real flat-topped signal. Mark the
+                            // frequencies where that is happening.
+                            var overRange = Path()
+                            for point in points where point.level > bounds.maxL {
+                                let x = plot.minX + (point.frequency - bounds.minF) / (bounds.maxF - bounds.minF) * plot.width
+                                overRange.addRect(CGRect(x: x - 1, y: plot.minY, width: 2, height: 5))
+                            }
+                            layer.fill(overRange, with: .color(color))
                             if peakHoldEnabled, scan.isContinuous {
                                 var peakPath = Path()
                                 for (i, point) in scan.peakHoldPoints(atCaptureIndex: timelineCaptureIndex).enumerated() {
@@ -94,6 +107,19 @@ struct SpectrumView: View {
                     .padding(.top, 4)
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                if hasOverRangeSamples {
+                    Text("ABOVE REF")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.orange.opacity(0.92), in: Capsule())
+                        .padding(.trailing, 26)
+                        .padding(.top, 8)
+                        .help("Some samples are stronger than the reference level and are drawn flat against the top of the graph")
+                }
+            }
             .overlay {
                 if visible.isEmpty {
                     VStack(spacing: 10) {
@@ -112,10 +138,15 @@ struct SpectrumView: View {
 
     private var dataBounds: (minF: Double, maxF: Double, minL: Double, maxL: Double) {
         guard let fullRange = visibleFrequencyRange else {
-            return (0, 1, -120, -20)
+            return (0, 1, scale.minimum, scale.maximum)
         }
         let range = FrequencyZoom.clamped(frequencyWindow ?? fullRange, to: fullRange)
-        return (range.lowerBound, range.upperBound, -120, -20)
+        return (range.lowerBound, range.upperBound, scale.minimum, scale.maximum)
+    }
+
+    /// True when the scale is hiding how strong something actually is.
+    private var hasOverRangeSamples: Bool {
+        allPoints.contains { $0.level > scale.maximum }
     }
 
     private var visibleFrequencyRange: ClosedRange<Double>? {

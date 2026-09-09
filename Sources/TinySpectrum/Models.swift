@@ -207,6 +207,31 @@ enum SweepEstimator {
     }
 }
 
+/// Vertical extent of the spectrum graph, in dBm.
+///
+/// The defaults reproduce the fixed -120 to -20 dBm window the graph used
+/// before 3.0, so a scale nobody has touched draws exactly as it did.
+struct AmplitudeScale: Equatable, Codable {
+    var referenceLevel: Double
+    var range: Double
+
+    static let `default` = AmplitudeScale(referenceLevel: -20, range: 100)
+    static let referenceLevels: [Double] = [0, -10, -20, -30, -40, -50]
+    static let ranges: [Double] = [40, 60, 80, 100, 120]
+
+    var maximum: Double { referenceLevel }
+    var minimum: Double { referenceLevel - range }
+
+    /// Fits the visible levels with a little headroom, snapped to the values
+    /// the pickers offer so the controls always describe the scale on screen.
+    static func fitting(levels: [Double]) -> AmplitudeScale {
+        guard let highest = levels.max(), let lowest = levels.min() else { return .default }
+        let reference = referenceLevels.filter { $0 >= highest + 5 }.min() ?? referenceLevels[0]
+        let needed = reference - (lowest - 5)
+        return AmplitudeScale(referenceLevel: reference, range: ranges.first { $0 >= needed } ?? ranges.last ?? 100)
+    }
+}
+
 enum Palette {
     // Keep these values and their order aligned with Windows ScanPalette.
     private static let darkModeColors: [Color] = [

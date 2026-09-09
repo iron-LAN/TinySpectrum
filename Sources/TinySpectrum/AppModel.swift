@@ -21,6 +21,7 @@ final class AppModel: ObservableObject {
     @Published var selectedScanIDs: Set<UUID> = []
     @Published var timelinePosition = 1.0
     @Published var timelineCaptureIndex: Int?
+    @Published var amplitudeScale = AmplitudeScale.default
     @Published var batteryMillivolts: Int?
     @Published var deviceProfile = TinySAProfile.regular
     @Published var currentCity: String?
@@ -310,6 +311,19 @@ final class AppModel: ObservableObject {
         }
         timelineCaptureIndex = min(scan.captureCount - 1, max(0, Int((timelinePosition * Double(scan.captureCount - 1)).rounded())))
         updateTimelinePosition(for: scan)
+    }
+
+    /// Levels of every scan currently drawn, at the position the timeline is
+    /// parked on, which is what the vertical scale has to accommodate.
+    var visibleLevels: [Double] {
+        scans.filter { selectedScanIDs.contains($0.id) }
+            .flatMap { $0.points(atCaptureIndex: timelineCaptureIndex).map(\.level) }
+    }
+
+    func autoscaleAmplitude() {
+        let levels = visibleLevels
+        guard !levels.isEmpty else { return }
+        amplitudeScale = .fitting(levels: levels)
     }
 
     private var timelineReferenceScan: SpectrumScan? {

@@ -79,6 +79,24 @@ struct ContentView: View {
             HStack {
                 Text("SPECTRUM").font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
+                Button("AUTO") { model.autoscaleAmplitude() }
+                    .controlSize(.small)
+                    .disabled(model.selectedScanIDs.isEmpty)
+                    .help("Fit the vertical scale to the scans on screen")
+                Picker("REF", selection: $model.amplitudeScale.referenceLevel) {
+                    ForEach(AmplitudeScale.referenceLevels, id: \.self) { level in
+                        Text("\(Int(level)) dBm").tag(level)
+                    }
+                }
+                .frame(width: 108)
+                .help("Level drawn at the top of the graph")
+                Picker("RANGE", selection: $model.amplitudeScale.range) {
+                    ForEach(AmplitudeScale.ranges, id: \.self) { range in
+                        Text("\(Int(range)) dB").tag(range)
+                    }
+                }
+                .frame(width: 112)
+                .help("How many decibels the graph spans from top to bottom")
                 Toggle(isOn: $peakHoldEnabled) {
                     Label("Peak Hold", systemImage: "waveform.path.ecg.rectangle")
                         .font(.caption2.bold())
@@ -92,7 +110,7 @@ struct ContentView: View {
             .padding(12)
             .background(panelBackground, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(panelBorder, lineWidth: 1))
-            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, peakHoldEnabled: peakHoldEnabled)
+            SpectrumView(scans: model.scans, selected: model.selectedScanIDs, timelinePosition: model.timelinePosition, timelineCaptureIndex: model.timelineCaptureIndex, peakHoldEnabled: peakHoldEnabled, scale: model.amplitudeScale)
                 .frame(minHeight: 300, maxHeight: .infinity)
                 .layoutPriority(1)
                 .background(graphBackground, in: RoundedRectangle(cornerRadius: 10))
